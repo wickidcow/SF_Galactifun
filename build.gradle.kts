@@ -51,10 +51,13 @@ configurations.configureEach {
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
     options.release.set(21)
+    // Keep the Legacy compatibility boundaries explicit and prevent deprecated APIs from
+    // silently creeping back into normal Galactifun code.
     options.compilerArgs.addAll(listOf(
         "-Xlint:deprecation",
         "-Xlint:removal",
-        "-Xlint:unchecked"
+        "-Xlint:unchecked",
+        "-Werror"
     ))
 }
 
