@@ -1,30 +1,37 @@
-# Enable this to get bug fixes and support asap
-auto-update: true
+# Galactifun Legacy 1.0 configuration
+# Automatic binary updating is intentionally disabled; use GitHub/Modrinth releases.
+auto-update: false
 
 worlds:
-
-  # The name of your world that is Earth.
-  # This should be the name main world where people work on stuff and make bases.
+  # Existing installations keep using their current Earth and world_galactifun_* names.
   earth-name: world
 
-  # If set to true, players can use Nether portals in Galactifun planet worlds.
+  # Do not silently generate a new Earth if the configured world is missing.
+  # This is safer for Multiverse/BentoBox/custom world setups.
+  create-missing-earth: false
+
+  # If true, vanilla Nether portals can be created/used in Galactifun planet worlds.
   allow-nether-portals: false
 
 aliens:
+  # World/alien simulation cadence. The legacy code historically ran this every 100 ticks.
+  tick-interval: 100
 
-  # How often aliens tick in Minecraft ticks - there are 20 ticks in 1 second
-  tick-interval: 2
-
-  # Maximum number of aliens per player per world
+  # Maximum number of Galactifun aliens per player per planet world.
   max-per-player: 8
 
-  # Chance for a Leech to eat an item
+  # Chance for a Leech to eat an item.
   leech-eat-chance: 50
 
 rockets:
-  
-  # Messages while rocket is launching. Must have at least 4
-  launch-msgs: 
+  # Stale launch locks are recovered after this many seconds.
+  launch-lock-timeout-seconds: 90
+
+  # Only nearby entities are considered passengers during launch.
+  passenger-radius: 5.0
+
+  # Messages while a rocket is launching. Keep at least four.
+  launch-msgs:
     - Forgetting parachutes
     - Restocking snack bin
     - Aligning planets
@@ -36,12 +43,42 @@ rockets:
     - Going Boomer
     - Not going home
 
-other:
+integrations:
+  multiverse:
+    # Multiverse-Core remains optional. Galactifun will detect it automatically.
+    enabled: auto
 
-  # The range that the automatic door checks for players
+    # Multiverse-Portals/plugin teleports into planet worlds can bypass rocket progression,
+    # so entry remains opt-in. Exiting a planet through an external world manager is allowed.
+    portals:
+      allow-entry-to-planets: false
+      allow-exit-from-planets: true
+
+    # Galactifun never copies player inventories itself. When Multiverse-Inventories is
+    # installed its normal world/group transitions are left in control.
+    inventories:
+      respect-world-groups: true
+
+  bentobox:
+    enabled: auto
+
+  geyser:
+    enabled: auto
+
+security:
+  # Naturally generated mapped resources (including rare planet ores) may not be moved
+  # by pistons. Player-placed mapped blocks remain movable.
+  prevent-piston-mapped-block-moves: true
+
+performance:
+  oxygen-check-interval: 20
+  world-tick-interval: 100
+
+other:
+  # The range that the automatic door checks for players.
   auto-door-range: 2
 
-  # Blocks prohibited to be used by the automatic door
+  # Blocks prohibited from use by the automatic door.
   auto-door-banned-types:
     - BEDROCK
     - CAKE
@@ -51,5 +88,4 @@ other:
     - STRUCTURE_BLOCK
 
   # Max range for sealed command. High values may impact performance, low values may miss sealed areas.
-  # More info: https://github.com/Slimefun-Addon-Community/Galactifun/wiki/Sealing#Range
   sealed-command-max-range: 300000
