@@ -38,7 +38,7 @@ Galactifun remains the owner of its planetary generators. Multiverse-Core is det
 
 1. Install **Slimefun Legacy** and start the server once.
 2. Stop the server normally.
-3. Place `SF_Galactifun1.0.1.jar` in the `plugins` folder.
+3. Place `SF_Glactifun1.0.1.jar` in the `plugins` folder.
 4. Start the server and review the Galactifun compatibility preflight in the console.
 5. Confirm the enabled planetary worlds load successfully before opening the server to players.
 
@@ -72,7 +72,7 @@ Release/CI builds compile against the current `wickidcow/Slimefun-Legacy` master
 Expected release artifact:
 
 ```text
-build/libs/SF_Galactifun1.0.1.jar
+build/libs/SF_Glactifun1.0.1.jar
 ```
 
 The build uses Java 25 while deliberately emitting Java 21 bytecode for Galactifun-owned classes.
