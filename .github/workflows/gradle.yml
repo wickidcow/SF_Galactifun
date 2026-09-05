@@ -19,13 +19,6 @@ jobs:
       - name: Checkout Galactifun
         uses: actions/checkout@v6
 
-      - name: Checkout Slimefun Legacy 4.1.45
-        uses: actions/checkout@v6
-        with:
-          repository: wickidcow/Slimefun-Legacy
-          ref: v4.1.45
-          path: .ci/slimefun-legacy
-
       - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
@@ -36,22 +29,19 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Slimefun Legacy 4.1.45 API
-        working-directory: .ci/slimefun-legacy
-        run: |
-          chmod +x gradlew
-          ./gradlew spotlessApply --no-daemon
-          ./gradlew clean build --no-daemon
-
-      - name: Locate Slimefun Legacy JAR
+      - name: Download released Slimefun Legacy 4.1.45 JAR
         shell: bash
         run: |
-          CORE_JAR="$(find .ci/slimefun-legacy/build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' \
-            ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
-          test -n "$CORE_JAR"
-          test -f "$CORE_JAR"
-          echo "SLIMEFUN_CORE_JAR=$CORE_JAR" >> "$GITHUB_ENV"
-          echo "Compiling against released Legacy tag v4.1.45: $CORE_JAR"
+          mkdir -p .ci
+          curl --fail --location --silent --show-error \
+            https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.45/Slimefun-Legacy4.1.45.jar \
+            --output .ci/Slimefun-Legacy4.1.45.jar
+
+          echo "3a6b1a377507f7a5ee542b1e062e5d67e13d80e1f200ecb5f0be58fe8c26011c  .ci/Slimefun-Legacy4.1.45.jar" \
+            | sha256sum --check --strict
+
+          echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
+          echo "Compiling against published Slimefun Legacy 4.1.45 release JAR"
 
       - name: Build Galactifun 1.0.1
         run: |
