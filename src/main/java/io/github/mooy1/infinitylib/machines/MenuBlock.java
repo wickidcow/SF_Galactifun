@@ -36,7 +36,7 @@ public abstract class MenuBlock extends SlimefunItem {
     public static final ItemStack NO_ROOM_ITEM = new CustomItemStack(Material.ORANGE_STAINED_GLASS_PANE, "&6Not enough room!");
     public static final ItemStack OUTPUT_BORDER = new CustomItemStack(ChestMenuUtils.getOutputSlotTexture(), "&6Output");
     public static final ItemStack INPUT_BORDER = new CustomItemStack(ChestMenuUtils.getInputSlotTexture(), "&9Input");
-    public static final ItemStack BACKGROUND_ITEM = ChestMenuUtils.getBackground();
+    public static final ItemStack BACKGROUND_ITEM = new CustomItemStack(ChestMenuUtils.getBackground());
 
     public MenuBlock(ItemGroup category, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(category, item, recipeType, recipe);
