@@ -17,8 +17,15 @@ aliens:
   # World/alien simulation cadence. The legacy code historically ran this every 100 ticks.
   tick-interval: 100
 
-  # Maximum number of Galactifun aliens per player per planet world.
+  # Maximum number of loaded Galactifun aliens per player per planet world.
   max-per-player: 8
+
+  # Bounded spawning: each active player gets this many attempts per planet simulation tick.
+  # Attempts only inspect already-loaded chunks, so work no longer grows with all loaded chunks.
+  spawn-attempts-per-player: 6
+
+  # Random chunk radius around each active player used for bounded spawn attempts.
+  spawn-radius-chunks: 2
 
   # Chance for a Leech to eat an item.
   leech-eat-chance: 50
