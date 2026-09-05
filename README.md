@@ -1,113 +1,179 @@
 <div align="center">
 
-# 🪐 Galactifun
+# 🪐 Galactifun Legacy
 
-**An advanced space exploration, planetary systems, rocketry, and astronomy addon for Slimefun4.**
+**Space exploration, planetary worlds, rockets, Stargates and astronomy for Slimefun Legacy.**
 
-[![Minecraft Version](https://img.shields.io/badge/Minecraft-1.21.4-brightgreen.svg?style=for-the-badge&logo=minecraft)](https://papermc.io/)
-[![Server Support](https://img.shields.io/badge/Server-Paper%20%2F%20Purpur-blue.svg?style=for-the-badge&logo=paper)](https://papermc.io/)
-[![Java Version](https://img.shields.io/badge/Java-21%2B-orange.svg?style=for-the-badge&logo=openjdk)](https://adoptium.net/)
-[![Slimefun](https://img.shields.io/badge/Slimefun-v4.0-yellow.svg?style=for-the-badge)](https://github.com/Slimefun/Slimefun4)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.11-brightgreen.svg?style=for-the-badge&logo=minecraft)](https://papermc.io/)
+[![Paper](https://img.shields.io/badge/Paper-26.2-blue.svg?style=for-the-badge)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-25-orange.svg?style=for-the-badge&logo=openjdk)](https://adoptium.net/)
+[![Slimefun Legacy](https://img.shields.io/badge/Slimefun%20Legacy-4.1.45-yellow.svg?style=for-the-badge)](https://github.com/wickidcow/Slimefun-Legacy)
 [![License](https://img.shields.io/badge/License-GPLv3-blueviolet.svg?style=for-the-badge)](LICENSE)
 
 </div>
 
 ---
 
-## 📖 Overview
+## About this fork
 
-**Galactifun** transforms your Minecraft server into a vast solar system with realistic planetary physics, space suits, rocketry, custom alien ecosystems, and high-tech manufacturing.
+Galactifun Legacy modernizes Galactifun for the current Albion/Slimefun Legacy stack while preserving the addon IDs, existing `world_galactifun_*` world names and established gameplay wherever possible.
 
-Inspired by *GalactiCraft* and *ClayTech*, redesigned and modernized for **Paper 1.21.4** and **Java 21**.
+**Primary target:**
 
----
+- Paper **26.2** / Minecraft **1.21.11**
+- Java **25**
+- Slimefun Legacy **4.1.45**
+- Purpur as a Paper-compatible secondary target
+- Folia detection is included, but Folia support remains **experimental**
 
-## ✨ Features
-
-### 🌌 Celestial Bodies & Space Exploration
-- **Planets & Moons**: Travel to **The Moon**, **Mars**, **Venus**, **Titan**, **Enceladus**, **Io**, and **Earth Orbit**.
-- **Planetary Physics**: Each celestial body features custom **gravity**, unique **day/night cycles**, and custom **atmospheric gas profiles** (Oxygen, Carbon Dioxide, Methane, Nitrogen, etc.).
-- **Space Hazards**: Harsh environments with extreme temperatures, toxic radiation, pressure differences, and lack of oxygen.
-
-### 🚀 Rockets & Launch Systems
-- **Chemical & Ion Rockets**: Build modular multi-tier spacecraft capable of reaching distant orbits.
-- **Launch Pads & Fueling**: Construct functional launch pads and fuel your rockets with customized propellant tanks.
-- **Interplanetary Navigation**: Real-time trajectory calculation and landing protocols.
-
-### 🧑‍🚀 Spacesuits & Life Support
-- **Modular Space Suits**: Upgrade helmets, chestplates, leggings, and boots with specialized modules.
-- **Environmental Protection**: Thermal regulators, radiation shields, and oxygen scrubbers.
-- **Oxygen Sealers & Habitat Systems**: Build pressurized, breathable bases on foreign planets without needing a suit.
-
-### ⚙️ High-Tech Machinery & Power
-- **Assembly Table**: Craft complex aerospace components and microcircuits.
-- **Fusion Reactor**: High-output clean energy generator.
-- **Atmospheric Harvester**: Extract rare planetary gases from local atmospheres.
-- **Diamond Anvil & Circuit Press**: Precision material refinement.
-
-### 👾 Aliens & Custom Mobs
-- Encounter hostile and passive extraterrestrial entities such as **Martians**, **Moon Cows**, **Firestorms**, and parasitic **Leeches** featuring custom AI goals.
-
-### 🌀 Stargates & Teleportation Networks
-- Construct deep-space **Stargate Controllers** and portal rings to bridge immense cosmic distances instantly.
+The release JAR is named **`SF_Galactifun1.0.0.jar`**.
 
 ---
 
-## 📦 Requirements
+## Highlights
 
-| Requirement | Supported Versions |
+### 🌌 Planetary worlds
+
+Explore the Moon, Mars, Venus, Titan, Enceladus, Io, Earth orbit and the rest of Galactifun's solar-system content with custom gravity, atmospheres, hazards, resources and alien ecosystems.
+
+The 1.0 modernization tracks worlds by stable name/UUID and can rebind them after an external world manager unloads or reloads them. Existing Galactifun world names are intentionally retained so upgrades do not orphan established planets.
+
+### 🚀 Safer rockets
+
+Rocket travel has been hardened for modern Paper servers:
+
+- destination chunks are prepared asynchronously before launch;
+- temporary plugin chunk tickets protect the landing transaction;
+- passenger searches are limited to nearby entities instead of scanning an entire world;
+- teleport completion is checked instead of assumed;
+- stale launch locks recover automatically;
+- the source rocket is removed before destination cargo is created, closing the historical two-copy launch window;
+- breaking a launch pad returns the rocket, stored cargo and fuel;
+- breaking the rocket directly also returns its stored cargo and fuel exactly through Slimefun's normal drop path.
+
+### 🌀 Stargates and travel security
+
+The old unrestricted teleport metadata flag has been replaced with destination-bound, expiring travel authorization shared by rockets, Stargates and administrative world travel.
+
+Stargate addresses are now stored in Galactifun's own persistent `stargates.yml` registry rather than relying on removed Slimefun BlockStorage internals.
+
+### 🔒 Resource and world protection
+
+- naturally generated mapped planetary resources cannot be piston-moved by default;
+- vanilla Nether portals are blocked in Galactifun planet worlds unless explicitly enabled;
+- external plugin teleports into planet worlds remain blocked by default so Multiverse portals cannot silently bypass rocket progression;
+- Galactifun no longer mutates global Paper/Spigot configuration on startup.
+
+### ⚡ Performance cleanup
+
+- oxygen checks run only against players in relevant Galactifun worlds;
+- world/alien simulation cadence is configurable;
+- rocket passenger lookup is localized;
+- world reload tracking no longer depends only on live `World` object identity.
+
+---
+
+## Optional integrations
+
+Galactifun does **not** hard-depend on a world manager. Optional integrations are detected centrally and remain safe when absent.
+
+| Integration | Behavior |
 |:---|:---|
-| **Server Engine** | [Paper](https://papermc.io/) or [Purpur](https://purpurmc.org/) **1.21.4+** |
-| **Java Runtime** | **Java 21** or newer |
-| **Dependencies** | [Slimefun4](https://github.com/Slimefun/Slimefun4) (RC-38 or newer) |
-| **Optional Integrations** | [Multiverse-Core](https://github.com/Multiverse/Multiverse-Core), [BentoBox](https://bentobox.world/) |
+| **Multiverse-Core** | Galactifun can attach to already-loaded worlds and safely rebind after unload/reload. |
+| **Multiverse-Inventories** | Inventory/group transitions are left under Multiverse-Inventories control. |
+| **Multiverse-Portals** | Planet entry is blocked by default; planet exit can be allowed by configuration. |
+| **BentoBox** | Existing managed Earth/world setups are respected rather than silently replaced. |
+| **Geyser / Floodgate** | Detected as optional compatibility integrations. |
+| **Folia** | Detected, but currently considered experimental. |
+
+Relevant defaults live under `integrations:` in `config.yml`.
 
 ---
 
-## 🛠️ Commands & Permissions
+## Diagnostics
 
-| Command | Description | Permission |
-|:---|:---|:---|
-| `/galactifun` (aliases: `/gfun`, `/galactic`) | Displays Galactifun version & addon info | `galactifun.command` |
-| `/galactifun alien spawn <alien_id>` | Spawns a custom extraterrestrial entity | `galactifun.command.alien.spawn` |
-| `/galactifun alien killall` | Removes all spawned alien entities | `galactifun.command.alien.killall` |
-| `/galactiport <destination>` | Teleport directly to a planetary world | `galactifun.command.galactiport` |
-| `/sf guide` | Opens the Slimefun guide with all 13 Galactifun categories | *Default Slimefun access* |
+Server owners can run:
 
----
-
-## 🔨 Building & Developing
-
-### Compile with Gradle
-```bash
-# Clone the repository
-git clone https://github.com/Charmandiox9/Galactifun-SF.git
-cd Galactifun-SF
-
-# Build the shaded jar
-./gradlew shadowJar
-
-# The output jar will be in:
-# build/libs/Galactifun-1.21.0.jar
+```text
+/galactifun doctor
 ```
 
-### Run Local Test Server
-```bash
-./gradlew runServer
+The doctor report shows the Galactifun, server, Java and Slimefun versions; registered/loaded planet counts; detected optional integrations; Multiverse travel policy; and obvious configuration/runtime warnings.
+
+Useful administrative commands also include:
+
+```text
+/galactifun world <world>
+/galactifun effects
+/galactifun sealed
 ```
 
----
-
-## 👥 Authors & Contributors
-
-- **Seggan** - Original Creator
-- **Mooy1** - Core Contributor
-- **GallowsDove** - Design & Lore
-- **ProfElements** - Mechanics
-- **Charmandiox9** - Modernization to 1.21.4, Java 21, & In-source InfinityLib Refactoring
+The main command aliases are `/gf` and `/galactic`.
 
 ---
 
-## 📄 License
+## Configuration notes
 
-This project is licensed under the **GNU General Public License v3.0** (GPLv3).
+Important 1.0 defaults include:
+
+```yaml
+worlds:
+  earth-name: world
+  create-missing-earth: false
+  allow-nether-portals: false
+
+integrations:
+  multiverse:
+    portals:
+      allow-entry-to-planets: false
+      allow-exit-from-planets: true
+
+security:
+  prevent-piston-mapped-block-moves: true
+
+performance:
+  oxygen-check-interval: 20
+  world-tick-interval: 100
+```
+
+`create-missing-earth: false` is deliberate: Galactifun will not silently create a replacement Earth when a Multiverse, BentoBox or custom-world installation expects another plugin to own that world.
+
+---
+
+## Building
+
+The project uses Gradle **9.4.1** and a Java **25** toolchain. The build intentionally compiles against an exact Slimefun Legacy JAR rather than accidentally resolving another Slimefun fork.
+
+Place Slimefun Legacy in:
+
+```text
+lib/Slimefun-Legacy.jar
+```
+
+or provide it explicitly:
+
+```bash
+./gradlew clean build -PslimefunCoreJar=/path/to/Slimefun-Legacy4.1.45.jar
+```
+
+The finished JAR is written to:
+
+```text
+build/libs/SF_Galactifun1.0.0.jar
+```
+
+GitHub Actions downloads the exact Slimefun Legacy 4.1.45 release JAR automatically before CI/release builds.
+
+---
+
+## Credits
+
+Galactifun exists because of the work of its original authors and contributors, including **Seggan**, **Mooy1**, **GallowsDove**, **ProfElements**, **Charmandiox9**, and the wider Slimefun community.
+
+This Legacy modernization is maintained in the `wickidcow/SF_Galactifun` fork for current Slimefun Legacy servers.
+
+---
+
+## License
+
+Galactifun is licensed under the **GNU General Public License v3.0**.
