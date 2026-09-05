@@ -1,4 +1,4 @@
-name: Release
+name: Release Galactifun Legacy
 
 on:
   push:
@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. v1.21.0)'
+        description: 'Release tag (e.g. v1.0.0)'
         required: true
-        default: 'v1.21.0'
+        default: 'v1.0.0'
 
 permissions:
   contents: write
@@ -25,22 +25,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: temurin
+          java-version: '25'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Download Slimefun Legacy 4.1.45
+        run: |
+          mkdir -p lib
+          curl --fail --location --retry 3 \
+            https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.45/Slimefun-Legacy4.1.45.jar \
+            --output lib/Slimefun-Legacy.jar
+
       - name: Build Shadow Jar
-        run: ./gradlew shadowJar --no-daemon
+        run: ./gradlew clean shadowJar --no-daemon
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/libs/Galactifun-*.jar
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          files: build/libs/SF_Galactifun1.0.0.jar
           generate_release_notes: true
           draft: false
           prerelease: false
