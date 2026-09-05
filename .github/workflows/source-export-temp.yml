@@ -1,0 +1,29 @@
+name: Temp Source Export
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Inventory compatibility call sites
+        shell: bash
+        run: |
+          grep -R -n '\.item()' src/main/java > item-calls.txt || true
+          find src/main/java -type f -name '*.java' | sort > java-files.txt
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v7
+        with:
+          name: galactifun-source-snapshot
+          path: |
+            src/main/java
+            item-calls.txt
+            java-files.txt
+          if-no-files-found: error
