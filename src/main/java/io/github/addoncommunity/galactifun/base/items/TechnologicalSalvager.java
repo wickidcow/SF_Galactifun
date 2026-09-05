@@ -100,7 +100,7 @@ public class TechnologicalSalvager extends AbstractMachineBlock implements Machi
 
     @Override
     protected void setup(@Nonnull BlockMenuPreset preset) {
-        preset.drawBackground(BACKGROUND);
+        preset.drawBackground(MenuBlock.BACKGROUND_ITEM, BACKGROUND);
         for (int i : INPUT_BORDER) {
             preset.addItem(i, MenuBlock.INPUT_BORDER, ChestMenuUtils.getEmptyClickHandler());
         }
