@@ -1,6 +1,5 @@
 package io.github.mooy1.infinitylib.core;
 
-import java.io.File;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -10,9 +9,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.plugin.java.JavaPluginLoader;
 
 import io.github.mooy1.infinitylib.InfinityLib;
 import io.github.mooy1.infinitylib.commands.AddonCommand;
@@ -63,31 +60,6 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
         validate();
     }
 
-    /**
-     * Addon Testing Constructor
-     */
-    public AbstractAddon(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file,
-                            String githubUserName, String githubRepo, String autoUpdateBranch, String autoUpdateKey) {
-        this(loader, description, dataFolder, file, githubUserName, githubRepo, autoUpdateBranch, autoUpdateKey, Environment.TESTING);
-    }
-
-    /**
-     * Library Testing Constructor
-     */
-    AbstractAddon(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file,
-                  String githubUserName, String githubRepo, String autoUpdateBranch, String autoUpdateKey,
-                  Environment environment) {
-        super(loader, description, dataFolder, file);
-        this.updater = null;
-        this.environment = environment;
-        this.githubUserName = githubUserName;
-        this.autoUpdateBranch = autoUpdateBranch;
-        this.githubRepo = githubRepo;
-        this.autoUpdateKey = autoUpdateKey;
-        this.bugTrackerURL = "https://github.com/" + githubUserName + "/" + githubRepo + "/issues";
-        validate();
-    }
-
     private void validate() {
         if (environment == Environment.LIVE) {
             if (false && InfinityLib.PACKAGE.contains("mooy1.infinitylib")) {
@@ -120,7 +92,6 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
 
         loading = true;
 
-        // Load
         try {
             load();
         }
@@ -139,14 +110,10 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
         }
 
         enabling = true;
-
-        // Set static instance
         instance = this;
 
-        // This is used to mark when the config is broken, so we should always auto update
         boolean brokenConfig = false;
 
-        // Create Config
         try {
             config = new AddonConfig("config.yml");
         }
@@ -155,7 +122,6 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
             e.printStackTrace();
         }
 
-        // Validate autoUpdateKey
         if (autoUpdateKey == null) {
             brokenConfig = true;
             handle(new IllegalStateException("Null auto update key"));
@@ -169,7 +135,6 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
             handle(new IllegalStateException("Auto update key missing from the default config!"));
         }
 
-        // Auto update if enabled
         if (updater != null) {
             if (brokenConfig) {
                 updater.start();
@@ -180,16 +145,13 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
             }
         }
 
-        // Get plugin command
         PluginCommand pluginCommand = getCommand(getName());
         if (pluginCommand != null) {
             command = new AddonCommand(pluginCommand);
         }
 
-        // Create total tick count
         Scheduler.repeat(Slimefun.getTickerTask().getTickRate(), () -> slimefunTickCount++);
 
-        // Call addon enable
         try {
             enable();
         }
@@ -225,7 +187,7 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
     }
 
     /**
-     * Throws an exception if in a test environment, otherwise just logs the stacktrace so that the plugin functions
+     * Throws an exception in a test environment, otherwise logs the stacktrace so the plugin can continue.
      */
     private void handle(RuntimeException e) {
         switch (this.environment) {
