@@ -1,4 +1,4 @@
-name: Port Galactifun to Legacy 4.1.45
+name: Port Galactifun Source to Legacy 4.1.45
 
 on:
   push:
@@ -111,19 +111,6 @@ jobs:
               '                    missingBridge);\n'
               '            return false;\n', '')
           runtime.write_text(text)
-
-          workflow = Path('.github/workflows/gradle.yml')
-          text = workflow.read_text()
-          text = text.replace('- name: Checkout Slimefun Legacy\n', '- name: Checkout Slimefun Legacy 4.1.45\n')
-          text = text.replace('          ref: master\n          path: .ci/slimefun-legacy',
-                              '          ref: v4.1.45\n          path: .ci/slimefun-legacy')
-          text = text.replace('- name: Build Slimefun Legacy API\n', '- name: Build Slimefun Legacy 4.1.45 API\n')
-          text = text.replace('echo "Compiling against: $CORE_JAR"',
-                              'echo "Compiling against released Legacy tag v4.1.45: $CORE_JAR"')
-          workflow.write_text(text)
-
-          # This one-shot workflow removes itself in the same source-port commit.
-          Path('.github/workflows/source-export-temp.yml').unlink()
           PY
 
       - name: Commit Legacy 4.1.45 source compatibility
@@ -131,7 +118,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add src/main/java
           git diff --cached --check
           git commit -m "Support released Slimefun Legacy 4.1.45" || exit 0
           git push origin HEAD:master
