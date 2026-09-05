@@ -1,14 +1,19 @@
 name: Galactifun
 version: '${version}'
 main: io.github.addoncommunity.galactifun.Galactifun
-api-version: '1.21'
-description: Advanced space, galaxies, rockets, and astronomy addon for Slimefun4
+api-version: '1.21.11'
+description: Galactifun Legacy - space, planets, rockets and astronomy for Slimefun Legacy
 authors: [Seggan, Mooy1, GallowsDove, ProfElements, Charmandiox9]
+contributors: [wickidcow]
 depend:
   - Slimefun
 softdepend:
   - BentoBox
   - Multiverse-Core
+  - Multiverse-Inventories
+  - Multiverse-Portals
+  - Geyser-Spigot
+  - floodgate
 
 commands:
   galactifun:
