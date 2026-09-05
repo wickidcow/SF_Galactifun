@@ -40,14 +40,14 @@ jobs:
         working-directory: .ci/slimefun-legacy
         run: |
           chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
           ./gradlew clean build --no-daemon
 
       - name: Locate Slimefun Legacy JAR
         shell: bash
         run: |
-          CORE_JAR="$(find .ci/slimefun-legacy/build/libs -maxdepth 1 -type f -name '*.jar' \
-            ! -name '*-sources.jar' ! -name '*-javadoc.jar' -printf '%s %p\n' \
-            | sort -nr | head -n 1 | cut -d' ' -f2-)"
+          CORE_JAR="$(find .ci/slimefun-legacy/build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' \
+            ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$CORE_JAR"
           test -f "$CORE_JAR"
           echo "SLIMEFUN_CORE_JAR=$CORE_JAR" >> "$GITHUB_ENV"
