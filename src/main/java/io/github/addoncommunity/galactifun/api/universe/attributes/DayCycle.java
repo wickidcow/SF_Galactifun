@@ -2,7 +2,7 @@ package io.github.addoncommunity.galactifun.api.universe.attributes;
 
 import javax.annotation.Nonnull;
 
-import org.bukkit.GameRule;
+import org.bukkit.GameRules;
 import org.bukkit.World;
 import org.apache.commons.lang3.Validate;
 
@@ -84,7 +84,7 @@ public final class DayCycle {
     }
 
     public void applyEffects(@Nonnull World world) {
-        world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
+        world.setGameRule(GameRules.ADVANCE_TIME, false);
         if (this.startTime != -1) {
             setTimeSafely(world, this.startTime);
         }
