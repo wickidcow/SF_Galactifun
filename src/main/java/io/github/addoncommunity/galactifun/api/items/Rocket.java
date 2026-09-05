@@ -113,9 +113,54 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
                 if (isLaunchLocked(event.getBlock())) {
                     event.setCancelled(true);
                     event.getPlayer().sendMessage(ChatColor.RED + "The rocket is currently launching!");
+                    return;
                 }
+
+                appendStoredContentsToDrops(event.getBlock(), drops);
             }
         });
+    }
+
+    /**
+     * Adds cargo and stored fuel to Slimefun's authoritative block-break drop list.
+     * The rocket item itself is still handled by Slimefun.
+     */
+    private static void appendStoredContentsToDrops(Block rocket, List<ItemStack> drops) {
+        if (rocket.getState() instanceof Skull skull) {
+            List<ItemStack> cargo = skull.getPersistentDataContainer().getOrDefault(
+                    CARGO_KEY, PersistentType.ITEM_STACK_LIST, new ArrayList<>());
+            for (ItemStack stack : cargo) {
+                if (stack != null && !stack.getType().isAir()) {
+                    drops.add(stack.clone());
+                }
+            }
+        }
+
+        int fuel = BSUtils.getStoredInt(rocket.getLocation(), "fuel");
+        String fuelType = BlockStorage.getLocationInfo(rocket.getLocation(), "fuelType");
+        if (fuel <= 0 || fuelType == null || fuelType.isBlank()) {
+            return;
+        }
+
+        final ItemStack fuelItem;
+        try {
+            fuelItem = StackUtils.itemByIdOrType(fuelType);
+        } catch (RuntimeException exception) {
+            Galactifun.log(java.util.logging.Level.WARNING,
+                    "Could not recover stored rocket fuel at " + rocket.getLocation(), exception.toString());
+            return;
+        }
+
+        if (fuelItem == null || fuelItem.getType().isAir()) {
+            return;
+        }
+
+        int maxStackSize = Math.max(1, fuelItem.getMaxStackSize());
+        while (fuel > 0) {
+            int amount = Math.min(maxStackSize, fuel);
+            drops.add(fuelItem.asQuantity(amount));
+            fuel -= amount;
+        }
     }
 
     /**
