@@ -12,7 +12,6 @@ import org.bukkit.inventory.ItemStack;
 
 import io.github.addoncommunity.galactifun.base.BaseItems;
 import io.github.addoncommunity.galactifun.base.items.AssemblyTable;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.groups.FlexItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
@@ -111,10 +110,9 @@ public final class AssemblyItemGroup extends FlexItemGroup {
             }
         }
 
-        menu.addItem(18, BaseItems.ASSEMBLY_TABLE.item(), ChestMenuUtils.getEmptyClickHandler());
+        menu.addItem(18, BaseItems.ASSEMBLY_TABLE.clone(), ChestMenuUtils.getEmptyClickHandler());
         menu.addItem(26, item.getKey(), ChestMenuUtils.getEmptyClickHandler());
 
         menu.open(p);
     }
-
 }
