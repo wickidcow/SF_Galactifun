@@ -22,6 +22,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import io.github.addoncommunity.galactifun.api.items.Rocket;
 import io.github.addoncommunity.galactifun.base.BaseItems;
 import io.github.addoncommunity.galactifun.util.BSUtils;
+import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.addoncommunity.galactifun.util.Util;
 import io.github.mooy1.infinitylib.common.PersistentType;
 import io.github.mooy1.infinitylib.common.StackUtils;
@@ -31,7 +32,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
 import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
@@ -41,7 +41,6 @@ import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 
 public final class LaunchPadCore extends TickingMenuBlock {
-
 
     private static final int[] BACKGROUND = {
             0, 1, 2, 3, 4, 5, 6, 7, 8,
@@ -61,106 +60,142 @@ public final class LaunchPadCore extends TickingMenuBlock {
 
     public LaunchPadCore(ItemGroup category, SlimefunItemStack item, RecipeType type, ItemStack[] recipe) {
         super(category, item, type, recipe);
-        addItemHandler((BlockUseHandler) LaunchPadCore::onInteract);
+        addItemHandler((io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler) LaunchPadCore::onInteract);
     }
 
     @Override
     protected void tick(@Nonnull Block block, @Nonnull BlockMenu menu) {
-        Block b = block.getRelative(BlockFace.UP);
+        Block rocketBlock = block.getRelative(BlockFace.UP);
+        SlimefunItem sfItem = BlockStorage.check(rocketBlock);
+        if (!(sfItem instanceof Rocket rocket) || Rocket.isLaunchLocked(rocketBlock)) {
+            return;
+        }
 
-        SlimefunItem sfItem = BlockStorage.check(b);
-        if (!(sfItem instanceof Rocket rocket)) return;
-
-        Location l = b.getLocation();
-        if (BSUtils.getStoredBoolean(l, "isLaunching")) return;
-
-        String string = Objects.requireNonNullElse(BlockStorage.getLocationInfo(l, "fuel"), "0");
+        Location location = rocketBlock.getLocation();
+        String string = Objects.requireNonNullElse(BlockStorage.getLocationInfo(location, "fuel"), "0");
         int fuel = Integer.parseInt(string);
-
-        string = BlockStorage.getLocationInfo(l, "fuelType");
+        string = BlockStorage.getLocationInfo(location, "fuelType");
 
         if (fuel < rocket.fuelCapacity()) {
             ItemStack fuelItem = menu.getItemInSlot(FUEL_SLOT);
             if (fuelItem != null) {
                 String id = StackUtils.getIdOrType(fuelItem);
-
                 if ((string == null || id.equals(string)) && rocket.allowedFuels().containsKey(id)) {
                     menu.consumeItem(FUEL_SLOT);
-                    BSUtils.addBlockInfo(l.getBlock(), "fuel", ++fuel);
+                    BSUtils.addBlockInfo(rocketBlock, "fuel", ++fuel);
                     if (string == null) {
-                        BlockStorage.addBlockInfo(l, "fuelType", id);
+                        BlockStorage.addBlockInfo(location, "fuelType", id);
                     }
                 }
             }
         }
 
-        Skull skull = (Skull) b.getState();
+        if (!(rocketBlock.getState() instanceof Skull skull)) {
+            return;
+        }
+
         PersistentDataContainer container = skull.getPersistentDataContainer();
-        List<ItemStack> cargo = container.getOrDefault(Rocket.CARGO_KEY, PersistentType.ITEM_STACK_LIST, new ArrayList<>());
-        if (cargo.size() < rocket.storageCapacity()) {
-            for (int i : INVENTORY_SLOTS) {
-                ItemStack item = menu.getItemInSlot(i);
-                if (item != null) {
-                    item = item.asOne();
-                    for (ItemStack stack : cargo) {
-                        if (ItemUtils.canStack(stack, item)) {
-                            stack.add();
-                            item = null;
-                            break;
-                        }
-                    }
+        List<ItemStack> cargo = container.getOrDefault(
+                Rocket.CARGO_KEY, PersistentType.ITEM_STACK_LIST, new ArrayList<>());
 
-                    if (item != null) {
-                        cargo.add(item);
-                    }
+        for (int slot : INVENTORY_SLOTS) {
+            ItemStack input = menu.getItemInSlot(slot);
+            if (input == null || input.getType().isAir()) {
+                continue;
+            }
 
-                    menu.consumeItem(i);
+            ItemStack one = input.asOne();
+            boolean stored = false;
+            for (ItemStack stack : cargo) {
+                if (ItemUtils.canStack(stack, one) && stack.getAmount() < stack.getMaxStackSize()) {
+                    stack.setAmount(stack.getAmount() + 1);
+                    stored = true;
                     break;
                 }
             }
+
+            if (!stored && cargo.size() < rocket.storageCapacity()) {
+                cargo.add(one);
+                stored = true;
+            }
+
+            if (stored) {
+                menu.consumeItem(slot);
+            }
+            break;
         }
 
         container.set(Rocket.CARGO_KEY, PersistentType.ITEM_STACK_LIST, cargo);
         skull.update();
     }
 
-    public static boolean canBreak(@Nonnull Player p, @Nonnull Block b) {
-        if (BSUtils.getStoredBoolean(b.getRelative(BlockFace.UP).getLocation(), "isLaunching")) {
-            p.sendMessage(ChatColor.RED + "You cannot break the launchpad a rocket is launching on!");
+    public static boolean canBreak(@Nonnull Player player, @Nonnull Block block) {
+        Block rocket = block.getRelative(BlockFace.UP);
+        if (Rocket.isLaunchLocked(rocket)) {
+            player.sendMessage(ChatColor.RED + "You cannot break the launchpad a rocket is launching on!");
             return false;
         }
         return true;
     }
 
     @Override
-    protected void onBreak(BlockBreakEvent e, @Nonnull BlockMenu menu) {
-        if (canBreak(e.getPlayer(), e.getBlock())) {
-            Location l = e.getBlock().getLocation();
-            menu.dropItems(l, INVENTORY_SLOTS);
-            menu.dropItems(l, 33);
+    protected void onBreak(BlockBreakEvent event, @Nonnull BlockMenu menu) {
+        if (!canBreak(event.getPlayer(), event.getBlock())) {
+            event.setCancelled(true);
+            return;
+        }
 
-            Block rocketBlock = e.getBlock().getRelative(BlockFace.UP);
-            SlimefunItem item = BlockStorage.check(rocketBlock);
+        Location location = event.getBlock().getLocation();
+        menu.dropItems(location, INVENTORY_SLOTS);
+        menu.dropItems(location, FUEL_SLOT);
 
-            if (item instanceof Rocket) {
-                World world = l.getWorld();
-                rocketBlock.setType(Material.AIR);
-                BlockStorage.clearBlockInfo(rocketBlock);
-                world.dropItemNaturally(rocketBlock.getLocation(), item.getItem().clone());
+        Block rocketBlock = event.getBlock().getRelative(BlockFace.UP);
+        SlimefunItem item = BlockStorage.check(rocketBlock);
+        if (!(item instanceof Rocket)) {
+            return;
+        }
+
+        World world = location.getWorld();
+        dropStoredRocketContents(world, rocketBlock);
+        rocketBlock.setType(Material.AIR);
+        BlockStorage.clearBlockInfo(rocketBlock);
+        world.dropItemNaturally(rocketBlock.getLocation(), item.getItem().clone());
+    }
+
+    private static void dropStoredRocketContents(World world, Block rocketBlock) {
+        Location dropLocation = rocketBlock.getLocation().add(0.5, 0.5, 0.5);
+
+        if (rocketBlock.getState() instanceof Skull skull) {
+            List<ItemStack> cargo = skull.getPersistentDataContainer().getOrDefault(
+                    Rocket.CARGO_KEY, PersistentType.ITEM_STACK_LIST, new ArrayList<>());
+            for (ItemStack stack : cargo) {
+                if (stack != null && !stack.getType().isAir()) {
+                    world.dropItemNaturally(dropLocation, stack.clone());
+                }
             }
-        } else {
-            e.setCancelled(true);
+        }
+
+        int fuel = BSUtils.getStoredInt(rocketBlock.getLocation(), "fuel");
+        String fuelType = BlockStorage.getLocationInfo(rocketBlock.getLocation(), "fuelType");
+        if (fuel <= 0 || fuelType == null) {
+            return;
+        }
+
+        ItemStack fuelItem = StackUtils.itemByIdOrType(fuelType);
+        int max = Math.max(1, fuelItem.getMaxStackSize());
+        while (fuel > 0) {
+            int amount = Math.min(max, fuel);
+            world.dropItemNaturally(dropLocation, fuelItem.asQuantity(amount));
+            fuel -= amount;
         }
     }
 
     @Override
     protected void setup(@Nonnull BlockMenuPreset preset) {
         preset.drawBackground(BACKGROUND);
-
         for (int i : BORDER) {
             preset.addItem(i, ChestMenuUtils.getOutputSlotTexture(), ChestMenuUtils.getEmptyClickHandler());
         }
-
         preset.addItem(24, new CustomItemStack(
                 HeadTexture.FUEL_BUCKET.getAsItemStack(),
                 "&6Insert Fuel Here"
@@ -177,33 +212,33 @@ public final class LaunchPadCore extends TickingMenuBlock {
         return new int[0];
     }
 
-    private static void onInteract(@Nonnull PlayerRightClickEvent e) {
-        Optional<Block> ob = e.getClickedBlock();
-        if (ob.isPresent()) {
-            Block b = ob.get();
-            Player p = e.getPlayer();
+    private static void onInteract(@Nonnull PlayerRightClickEvent event) {
+        Optional<Block> optional = event.getClickedBlock();
+        if (optional.isEmpty()) {
+            return;
+        }
 
-            if (isSurroundedByFloors(b)) {
-                SlimefunItem item = SlimefunItem.getByItem(e.getItem());
-                if (!(item instanceof Rocket)) {
-                    e.cancel();
-                }
-
-                BlockStorage.getInventory(b).open(p);
-            } else {
-                e.cancel();
-                p.sendMessage(ChatColor.RED + "Surround this block with 8 launch pad floors before attempting to use it");
+        Block block = optional.get();
+        Player player = event.getPlayer();
+        if (isSurroundedByFloors(block)) {
+            SlimefunItem item = SlimefunItem.getByItem(event.getItem());
+            if (!(item instanceof Rocket)) {
+                event.cancel();
             }
+            BlockStorage.getInventory(block).open(player);
+        } else {
+            event.cancel();
+            player.sendMessage(ChatColor.RED
+                    + "Surround this block with 8 launch pad floors before attempting to use it");
         }
     }
 
-    private static boolean isSurroundedByFloors(Block b) {
+    private static boolean isSurroundedByFloors(Block block) {
         for (BlockFace face : Util.SURROUNDING_FACES) {
-            if (!BlockStorage.check(b.getRelative(face), BaseItems.LAUNCH_PAD_FLOOR.getItemId())) {
+            if (!BlockStorage.check(block.getRelative(face), BaseItems.LAUNCH_PAD_FLOOR.getItemId())) {
                 return false;
             }
         }
-
         return true;
     }
 
@@ -211,5 +246,4 @@ public final class LaunchPadCore extends TickingMenuBlock {
     protected boolean synchronous() {
         return true;
     }
-
 }
