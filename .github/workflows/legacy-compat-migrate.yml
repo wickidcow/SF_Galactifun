@@ -26,87 +26,71 @@ jobs:
           path = Path('src/main/java/io/github/addoncommunity/galactifun/api/items/Rocket.java')
           text = path.read_text(encoding='utf-8')
 
-          old_handler = '''        addItemHandler(new BlockBreakHandler(false, false) {
-            @Override
-            @ParametersAreNonnullByDefault
-            public void onPlayerBreak(BlockBreakEvent event, ItemStack itemStack, List<ItemStack> drops) {
-                if (isLaunchLocked(event.getBlock())) {
-                    event.setCancelled(true);
-                    event.getPlayer().sendMessage(ChatColor.RED + "The rocket is currently launching!");
-                }
-            }
-        });
-    }
-'''
-
-          new_handler = '''        addItemHandler(new BlockBreakHandler(false, false) {
-            @Override
-            @ParametersAreNonnullByDefault
-            public void onPlayerBreak(BlockBreakEvent event, ItemStack itemStack, List<ItemStack> drops) {
-                if (isLaunchLocked(event.getBlock())) {
-                    event.setCancelled(true);
-                    event.getPlayer().sendMessage(ChatColor.RED + "The rocket is currently launching!");
-                    return;
-                }
-
-                appendStoredContentsToDrops(event.getBlock(), drops);
-            }
-        });
-    }
-'''
-
-          if old_handler not in text:
+          old = "\n".join([
+              '                if (isLaunchLocked(event.getBlock())) {',
+              '                    event.setCancelled(true);',
+              '                    event.getPlayer().sendMessage(ChatColor.RED + "The rocket is currently launching!");',
+              '                }',
+          ])
+          new = "\n".join([
+              '                if (isLaunchLocked(event.getBlock())) {',
+              '                    event.setCancelled(true);',
+              '                    event.getPlayer().sendMessage(ChatColor.RED + "The rocket is currently launching!");',
+              '                    return;',
+              '                }',
+              '',
+              '                appendStoredContentsToDrops(event.getBlock(), drops);',
+          ])
+          if old not in text:
               raise SystemExit('Expected Rocket BlockBreakHandler was not found')
-          text = text.replace(old_handler, new_handler, 1)
+          text = text.replace(old, new, 1)
 
-          marker = '''    /**
-     * Returns whether a launch lock is still active. Legacy/stale locks are automatically recovered.
-     */
-'''
-          helper = '''    /**
-     * Adds cargo and stored fuel to Slimefun's authoritative block-break drop list.
-     * The rocket item itself is still handled by Slimefun.
-     */
-    private static void appendStoredContentsToDrops(Block rocket, List<ItemStack> drops) {
-        if (rocket.getState() instanceof Skull skull) {
-            List<ItemStack> cargo = skull.getPersistentDataContainer().getOrDefault(
-                    CARGO_KEY, PersistentType.ITEM_STACK_LIST, new ArrayList<>());
-            for (ItemStack stack : cargo) {
-                if (stack != null && !stack.getType().isAir()) {
-                    drops.add(stack.clone());
-                }
-            }
-        }
-
-        int fuel = BSUtils.getStoredInt(rocket.getLocation(), "fuel");
-        String fuelType = BlockStorage.getLocationInfo(rocket.getLocation(), "fuelType");
-        if (fuel <= 0 || fuelType == null || fuelType.isBlank()) {
-            return;
-        }
-
-        final ItemStack fuelItem;
-        try {
-            fuelItem = StackUtils.itemByIdOrType(fuelType);
-        } catch (RuntimeException exception) {
-            Galactifun.log(java.util.logging.Level.WARNING,
-                    "Could not recover stored rocket fuel at " + rocket.getLocation(), exception.toString());
-            return;
-        }
-
-        if (fuelItem == null || fuelItem.getType().isAir()) {
-            return;
-        }
-
-        int maxStackSize = Math.max(1, fuelItem.getMaxStackSize());
-        while (fuel > 0) {
-            int amount = Math.min(maxStackSize, fuel);
-            drops.add(fuelItem.asQuantity(amount));
-            fuel -= amount;
-        }
-    }
-
-'''
-
+          marker = '    /**\n     * Returns whether a launch lock is still active. Legacy/stale locks are automatically recovered.\n     */\n'
+          helper = "\n".join([
+              '    /**',
+              "     * Adds cargo and stored fuel to Slimefun's authoritative block-break drop list.",
+              '     * The rocket item itself is still handled by Slimefun.',
+              '     */',
+              '    private static void appendStoredContentsToDrops(Block rocket, List<ItemStack> drops) {',
+              '        if (rocket.getState() instanceof Skull skull) {',
+              '            List<ItemStack> cargo = skull.getPersistentDataContainer().getOrDefault(',
+              '                    CARGO_KEY, PersistentType.ITEM_STACK_LIST, new ArrayList<>());',
+              '            for (ItemStack stack : cargo) {',
+              '                if (stack != null && !stack.getType().isAir()) {',
+              '                    drops.add(stack.clone());',
+              '                }',
+              '            }',
+              '        }',
+              '',
+              '        int fuel = BSUtils.getStoredInt(rocket.getLocation(), "fuel");',
+              '        String fuelType = BlockStorage.getLocationInfo(rocket.getLocation(), "fuelType");',
+              '        if (fuel <= 0 || fuelType == null || fuelType.isBlank()) {',
+              '            return;',
+              '        }',
+              '',
+              '        final ItemStack fuelItem;',
+              '        try {',
+              '            fuelItem = StackUtils.itemByIdOrType(fuelType);',
+              '        } catch (RuntimeException exception) {',
+              '            Galactifun.log(java.util.logging.Level.WARNING,',
+              '                    "Could not recover stored rocket fuel at " + rocket.getLocation(), exception.toString());',
+              '            return;',
+              '        }',
+              '',
+              '        if (fuelItem == null || fuelItem.getType().isAir()) {',
+              '            return;',
+              '        }',
+              '',
+              '        int maxStackSize = Math.max(1, fuelItem.getMaxStackSize());',
+              '        while (fuel > 0) {',
+              '            int amount = Math.min(maxStackSize, fuel);',
+              '            drops.add(fuelItem.asQuantity(amount));',
+              '            fuel -= amount;',
+              '        }',
+              '    }',
+              '',
+              '',
+          ])
           if marker not in text:
               raise SystemExit('Rocket launch-lock marker was not found')
           text = text.replace(marker, helper + marker, 1)
