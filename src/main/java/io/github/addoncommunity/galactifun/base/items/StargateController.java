@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import javax.annotation.Nonnull;
@@ -42,7 +41,6 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
-import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import net.kyori.adventure.text.Component;
@@ -270,19 +268,27 @@ public final class StargateController extends SlimefunItem implements Listener {
     }
 
     private static void setDestination(String destination, Block b, Player p) {
-        Location dest;
-        worldLoop:
-        {
-            for (BlockStorage storage : Slimefun.getRegistry().getWorlds().values()) {
-                for (Map.Entry<Location, Config> configEntry : storage.getRawStorage().entrySet()) {
-                    String bAddress = configEntry.getValue().getString("gfsgAddress");
-                    if (bAddress != null && bAddress.equals(destination)) {
-                        dest = configEntry.getKey();
-                        break worldLoop;
-                    }
+        Location dest = null;
+        String controllerId = BaseItems.STARGATE_CONTROLLER.getItemId();
+        var dataController = Slimefun.getDatabaseManager().getBlockDataController();
+
+        search:
+        for (var chunkData : dataController.getAllLoadedChunkData()) {
+            for (var blockData : chunkData.getAllBlockData()) {
+                if (!controllerId.equals(blockData.getSfId())) {
+                    continue;
+                }
+
+                String address = blockData.getData("gfsgAddress");
+                if (destination.equals(address)) {
+                    dest = blockData.getLocation();
+                    break search;
                 }
             }
-            p.sendMessage(ChatColor.RED + "No destination found!");
+        }
+
+        if (dest == null) {
+            p.sendMessage(ChatColor.RED + "No destination found! Make sure the destination world/chunk is loaded.");
             return;
         }
 
