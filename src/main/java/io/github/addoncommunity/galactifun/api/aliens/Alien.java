@@ -6,7 +6,6 @@ import java.util.Random;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
-
 import org.apache.commons.lang3.Validate;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -27,8 +26,8 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import io.github.addoncommunity.galactifun.base.aliens.Martian;
 import io.github.addoncommunity.galactifun.core.managers.AlienManager;
 import io.github.addoncommunity.galactifun.util.Messages;
-import net.kyori.adventure.text.Component;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.data.persistent.PersistentDataAPI;
+import net.kyori.adventure.text.Component;
 
 /**
  * Abstract class for an alien
@@ -159,11 +158,24 @@ public class Alien<T extends Mob> {
         return this.id.hashCode();
     }
 
-
     public String id() { return this.id; }
     public String getId() { return this.id; }
-    public String name() { return this.name; }
-    public String getName() { return this.name; }
+
+    /**
+     * Legacy string accessor retained for addon compatibility.
+     */
+    public String name() { return Messages.legacySection(this.name); }
+
+    /**
+     * Legacy string accessor retained for addon compatibility.
+     */
+    public String getName() { return Messages.legacySection(this.name); }
+
+    /**
+     * Adventure-native alien display name for modern Paper callers.
+     */
+    public Component nameComponent() { return this.name; }
+
     public double maxHealth() { return this.maxHealth; }
     public double getMaxHealth() { return this.maxHealth; }
     public double spawnChance() { return this.spawnChance; }
