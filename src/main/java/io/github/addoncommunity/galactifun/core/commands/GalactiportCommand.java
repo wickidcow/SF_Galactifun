@@ -13,14 +13,12 @@ import org.bukkit.entity.Player;
 import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
 import io.github.addoncommunity.galactifun.base.items.knowledge.KnowledgeLevel;
+import io.github.addoncommunity.galactifun.core.managers.TravelManager.TravelType;
 import io.github.mooy1.infinitylib.commands.SubCommand;
-import io.github.thebusybiscuit.slimefun4.libraries.paperlib.PaperLib;
+import io.github.mooy1.infinitylib.common.Scheduler;
 
 /**
- * Command to teleport to world spawns
- *
- * @author Seggan
- * @author Mooy1
+ * Command to teleport to world spawns.
  */
 public final class GalactiportCommand extends SubCommand {
 
@@ -30,23 +28,33 @@ public final class GalactiportCommand extends SubCommand {
 
     @Override
     public void execute(@Nonnull CommandSender commandSender, @Nonnull String[] strings) {
-        if (!(commandSender instanceof Player p) || strings.length != 1) {
+        if (!(commandSender instanceof Player player) || strings.length != 1) {
             return;
         }
 
         World world = Bukkit.getWorld(strings[0]);
-
         if (world == null) {
-            p.sendMessage(ChatColor.RED + "Invalid World!");
+            player.sendMessage(ChatColor.RED + "Invalid World!");
             return;
         }
 
-        PaperLib.teleportAsync(p, world.getSpawnLocation());
-
-        PlanetaryWorld planetaryWorld = Galactifun.worldManager().getWorld(world);
-        if (planetaryWorld != null && KnowledgeLevel.get(p, planetaryWorld) == KnowledgeLevel.NONE) {
-            KnowledgeLevel.BASIC.set(p, planetaryWorld);
+        if (player.getWorld() != world) {
+            Galactifun.travelManager().authorize(player, world, TravelType.GALACTIPORT);
         }
+
+        player.teleportAsync(world.getSpawnLocation()).thenAccept(success -> {
+            if (!success) {
+                Galactifun.travelManager().clear(player);
+                return;
+            }
+
+            Scheduler.run(() -> {
+                PlanetaryWorld planetaryWorld = Galactifun.worldManager().getWorld(world);
+                if (planetaryWorld != null && KnowledgeLevel.get(player, planetaryWorld) == KnowledgeLevel.NONE) {
+                    KnowledgeLevel.BASIC.set(player, planetaryWorld);
+                }
+            });
+        });
     }
 
     @Override
@@ -57,5 +65,4 @@ public final class GalactiportCommand extends SubCommand {
             }
         }
     }
-
 }
