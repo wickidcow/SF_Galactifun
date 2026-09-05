@@ -1,0 +1,26 @@
+name: Export Modernization Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/source-export.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Package source snapshot
+        run: |
+          zip -qr SF_Galactifun-source.zip src build.gradle.kts settings.gradle.kts gradle.properties .github/workflows/gradle.yml README.md || true
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v7
+        with:
+          name: SF_Galactifun-source
+          path: SF_Galactifun-source.zip
+          if-no-files-found: error
