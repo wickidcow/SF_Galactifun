@@ -110,12 +110,13 @@ public final class RuntimeCompatibility {
             Class.forName("io.github.thebusybiscuit.slimefun4.api.SlimefunAddon", false, loader);
             Class.forName("io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem", false, loader);
             Class.forName("io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack", false, loader);
-            Class.forName("me.mrCookieSlime.Slimefun.api.BlockStorage", false, loader);
+            Class.forName("com.xzavier0722.mc.plugin.slimefun4.storage.controller.BlockDataController", false, loader);
+            Class.forName("com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer", false, loader);
             plugin.getLogger().info(" - Slimefun API linkage probe: passed");
             return true;
         } catch (Throwable throwable) {
             plugin.getLogger().log(Level.SEVERE,
-                    "Slimefun API linkage probe failed. This build expects the classic Slimefun 4/Legacy API surface.",
+                    "Slimefun API linkage probe failed. This build expects the Slimefun Legacy 4.1.45+ block-data API surface.",
                     throwable);
             return false;
         }

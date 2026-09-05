@@ -1,5 +1,7 @@
 package io.github.mooy1.infinitylib.machines;
 
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -7,7 +9,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -69,13 +70,13 @@ public class CraftingBlock extends MenuBlock {
                     onSuccessfulCraft(menu, output);
                     menu.pushItem(output, layout.outputSlots());
                     recipe.consume(input);
-                    p.sendMessage(ChatColor.GREEN + "Successfully Crafted: " + ItemUtils.getItemName(output));
+                    Messages.green(p, "Successfully Crafted: " + ItemUtils.getItemName(output));
                 } else {
-                    p.sendMessage(ChatColor.GOLD + "Not Enough Room!");
+                    Messages.gold(p, "Not Enough Room!");
                 }
             }
         } else {
-            p.sendMessage(ChatColor.RED + "Invalid Recipe!");
+            Messages.red(p, "Invalid Recipe!");
         }
     }
 

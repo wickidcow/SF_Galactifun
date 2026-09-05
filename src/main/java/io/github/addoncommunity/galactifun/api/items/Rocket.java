@@ -1,5 +1,9 @@
 package io.github.addoncommunity.galactifun.api.items;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -9,7 +13,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -30,8 +33,6 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.SkullMeta;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
@@ -44,6 +45,8 @@ import io.github.addoncommunity.galactifun.core.WorldSelector;
 import io.github.addoncommunity.galactifun.core.managers.WorldManager;
 import io.github.addoncommunity.galactifun.util.BSUtils;
 import io.github.addoncommunity.galactifun.util.Util;
+import io.github.addoncommunity.galactifun.util.TeleportAccess;
+import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.github.mooy1.infinitylib.common.PersistentType;
 import io.github.mooy1.infinitylib.common.Scheduler;
 import io.github.mooy1.infinitylib.common.StackUtils;
@@ -62,7 +65,6 @@ import io.github.thebusybiscuit.slimefun4.libraries.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
 import io.github.thebusybiscuit.slimefun4.libraries.paperlib.PaperLib;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
@@ -108,36 +110,36 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
             @Override
             @ParametersAreNonnullByDefault
             public void onPlayerBreak(BlockBreakEvent e, ItemStack itemStack, List<ItemStack> list) {
-                if (Boolean.parseBoolean(BlockStorage.getLocationInfo(e.getBlock().getLocation(), "isLaunching"))) {
+                if (Boolean.parseBoolean(SFStorage.getData(e.getBlock().getLocation(), "isLaunching"))) {
                     e.setCancelled(true);
-                    e.getPlayer().sendMessage(ChatColor.RED + "The rocket is currently launching!");
+                    Messages.red(e.getPlayer(), "The rocket is currently launching!");
                 }
             }
         });
     }
 
     private void openGUI(@Nonnull Player p, @Nonnull Block b) {
-        if (!BlockStorage.check(b, this.getId())) return;
+        if (!SFStorage.isItem(b, this.getId())) return;
 
         if (BSUtils.getStoredBoolean(b.getLocation(), "isLaunching")) {
-            p.sendMessage(ChatColor.RED + "The rocket is already launching!");
+            Messages.red(p, "The rocket is already launching!");
             return;
         }
 
         WorldManager worldManager = Galactifun.worldManager();
         PlanetaryWorld currentWorld = worldManager.getWorld(p.getWorld());
         if (currentWorld == null) {
-            p.sendMessage(ChatColor.RED + "You cannot travel to space from this world!");
+            Messages.red(p, "You cannot travel to space from this world!");
             return;
         }
 
         int fuel = BSUtils.getStoredInt(b.getLocation(), "fuel");
         if (fuel == 0) {
-            p.sendMessage(ChatColor.RED + "The rocket has no fuel!");
+            Messages.red(p, "The rocket has no fuel!");
             return;
         }
 
-        String fuelType = BlockStorage.getLocationInfo(b.getLocation(), "fuelType");
+        String fuelType = SFStorage.getData(b.getLocation(), "fuelType");
         if (fuelType == null) return;
         double eff = allowedFuels.get(fuelType);
 
@@ -160,7 +162,7 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
         }, (player, destination) -> {
             player.closeInventory();
             int usedFuel = (int) Math.ceil(destination.distanceTo(currentWorld) / (DISTANCE_PER_FUEL * eff));
-            p.sendMessage(ChatColor.YELLOW + "Please enter destination coordinates in the form of <x> <z> (i.e. -123 456) or type in anything else to cancel:");
+            Messages.yellow(p, "Please enter destination coordinates in the form of <x> <z> (i.e. -123 456) or type in anything else to cancel:");
             ChatUtils.awaitInput(p, s -> {
                 if (Util.COORD_PATTERN.matcher(s).matches()) {
                     String[] coords = Util.SPACE_PATTERN.split(s);
@@ -168,13 +170,13 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
                             destination.world(),
                             Integer.parseInt(coords[0]),
                             Integer.parseInt(coords[1]),
-                            l -> (l.isBuildable() || l.isLiquid()) && !BlockStorage.check(l, BaseItems.LANDING_HATCH.getItemId())
+                            l -> (l.isBuildable() || l.isLiquid()) && !SFStorage.isItem(l, BaseItems.LANDING_HATCH.getItemId())
                     );
                     destBlock.getChunk().load();
                     if (!destBlock.getWorld().getWorldBorder().isInside(destBlock.getLocation())) {
-                        p.sendMessage(ChatColor.RED + "Destination is outside of world border");
+                        Messages.red(p, "Destination is outside of world border");
                     } else if (!Slimefun.getProtectionManager().hasPermission(p, destBlock, Interaction.PLACE_BLOCK)) {
-                        p.sendMessage(ChatColor.RED + "You do not have permission to land there");
+                        Messages.red(p, "You do not have permission to land there");
                     } else {
                         Block down = destBlock.getRelative(BlockFace.DOWN);
                         if (down.getType() == Material.CHEST) {
@@ -191,7 +193,7 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
                         );
                     }
                 } else {
-                    p.sendMessage(ChatColor.RED + "Launch cancelled");
+                    Messages.red(p, "Launch cancelled");
                 }
             });
         }).open(p);
@@ -224,7 +226,7 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
         sendLaunchMessage(120, p, launchMessages);
         sendLaunchMessage(160, p, launchMessages);
         Scheduler.run(200, () -> {
-            p.sendMessage(ChatColor.YELLOW + "Verifying blast awesomeness...");
+            Messages.yellow(p, "Verifying blast awesomeness...");
             Chest chest = (Chest) PaperLib.getBlockState(destBlock, false).getState();
             Inventory inv = chest.getBlockInventory();
             inv.addItem(fuelLeft);
@@ -237,10 +239,14 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
                 if ((entity instanceof LivingEntity && !(entity instanceof ArmorStand)) || entity instanceof Item) {
                     if (entity.getLocation().distanceSquared(rocket.getLocation()) <= 25) {
                         if (entity instanceof Player) {
-                            entity.setMetadata("CanTpAlienWorld", new FixedMetadataValue(Galactifun.instance(), true));
+                            TeleportAccess.grant(entity);
                         }
                         PaperLib.teleportAsync(entity, destBlock.getLocation().add(0, 1, 0))
-                                .thenRun(() -> entity.removeMetadata("CanTpAlienWorld", Galactifun.instance()));
+                                .thenRun(() -> {
+                                    if (entity instanceof Player) {
+                                        TeleportAccess.revoke(entity);
+                                    }
+                                });
                         if (KnowledgeLevel.get(p, destination) == KnowledgeLevel.NONE) {
                             KnowledgeLevel.BASIC.set(p, destination);
                         }
@@ -259,7 +265,9 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
 
                 Skull skull = (Skull) PaperLib.getBlockState(rocket, false).getState();
                 ItemStack stack = new ItemStack(skull.getType());
-                stack.editMeta(meta -> ((SkullMeta) meta).setPlayerProfile(skull.getPlayerProfile()));
+                if (skull.getProfile() != null) {
+                    stack.setData(DataComponentTypes.PROFILE, skull.getProfile());
+                }
 
                 armorStand.getEquipment().setHelmet(stack);
                 armorStand.setInvisible(true);
@@ -284,7 +292,7 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
             }
 
             rocket.setType(Material.AIR);
-            BlockStorage.clearBlockInfo(rocket);
+            SFStorage.remove(rocket);
         });
     }
 

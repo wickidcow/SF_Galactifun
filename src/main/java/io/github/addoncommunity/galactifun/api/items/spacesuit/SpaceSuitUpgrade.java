@@ -1,5 +1,6 @@
 package io.github.addoncommunity.galactifun.api.items.spacesuit;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -14,12 +15,14 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 
 import io.github.addoncommunity.galactifun.Galactifun;
+import io.github.addoncommunity.galactifun.util.Messages;
 import io.github.mooy1.infinitylib.common.PersistentType;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.items.blocks.UnplaceableBlock;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.common.ChatColors;
+import net.kyori.adventure.text.Component;
 
 @ParametersAreNonnullByDefault
 public final class SpaceSuitUpgrade extends UnplaceableBlock {
@@ -69,12 +72,14 @@ public final class SpaceSuitUpgrade extends UnplaceableBlock {
         }
 
         if (success) {
+            Component upgradeLore = Messages.legacySection(toLore());
             if (meta.hasLore()) {
-                List<String> lore = meta.getLore();
-                lore.add(toLore());
-                meta.setLore(lore);
+                List<Component> existingLore = meta.lore();
+                List<Component> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
+                lore.add(upgradeLore);
+                meta.lore(lore);
             } else {
-                meta.setLore(Collections.singletonList(toLore()));
+                meta.lore(Collections.singletonList(upgradeLore));
             }
         }
 

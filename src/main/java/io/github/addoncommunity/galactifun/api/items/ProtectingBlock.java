@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.api.items;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
@@ -33,9 +35,8 @@ import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetComponen
 import io.github.thebusybiscuit.slimefun4.libraries.dough.blocks.BlockPosition;
 import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
-import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 
@@ -70,16 +71,16 @@ public abstract class ProtectingBlock extends MenuBlock implements EnergyNetComp
             }
 
             @Override
-            public void tick(Block b, SlimefunItem item, Config data) {
+            public void tick(Block b, SlimefunItem item, ASlimefunDataContainer data) {
                 allBlocks.add(new BlockPosition(b));
 
-                BlockMenu menu = BlockStorage.getInventory(b);
+                BlockMenu menu = SFStorage.menu(b);
                 int req = getEnergyRequirement();
-                if (getCharge(b.getLocation()) < req || !BSUtils.getStoredBoolean(b.getLocation(), ENABLED)) {
-                    BlockStorage.addBlockInfo(b, PROTECTING, "false");
+                if (getChargeLong(b.getLocation(), data) < req || !BSUtils.getStoredBoolean(b.getLocation(), ENABLED)) {
+                    SFStorage.setData(b, PROTECTING, "false");
                 } else {
-                    BlockStorage.addBlockInfo(b, PROTECTING, "true");
-                    removeCharge(b.getLocation(), req);
+                    SFStorage.setData(b, PROTECTING, "true");
+                    removeCharge(b.getLocation(), (long) req, data);
                 }
 
                 ProtectingBlock.this.tick(b, menu);
@@ -88,7 +89,7 @@ public abstract class ProtectingBlock extends MenuBlock implements EnergyNetComp
             @Override
             public void uniqueTick() {
                 // to prevent memory leaks if something happens (block breaks aren't the only thing that can)
-                allBlocks.removeIf(pos -> !(BlockStorage.check(pos.toLocation()) instanceof ProtectingBlock));
+                allBlocks.removeIf(pos -> !(SFStorage.item(pos.toLocation()) instanceof ProtectingBlock));
 
                 // every 6 slimefun ticks (every 3 seconds)
                 if (counter < 6) {
@@ -112,7 +113,7 @@ public abstract class ProtectingBlock extends MenuBlock implements EnergyNetComp
     @Override
     @OverridingMethodsMustInvokeSuper
     protected void onPlace(@Nonnull BlockPlaceEvent e, @Nonnull Block b) {
-        BlockStorage.addBlockInfo(b, ENABLED, "true");
+        SFStorage.setData(b, ENABLED, "true");
         updateProtections(new BlockPosition(b));
     }
 
@@ -138,14 +139,14 @@ public abstract class ProtectingBlock extends MenuBlock implements EnergyNetComp
         if (BSUtils.getStoredBoolean(b.getLocation(), ENABLED)) {
             menu.replaceExistingItem(4, ENABLED_ITEM);
             menu.addMenuClickHandler(4, (p, slot, item, action) -> {
-                BlockStorage.addBlockInfo(b, ENABLED, "false");
+                SFStorage.setData(b, ENABLED, "false");
                 this.onNewInstance(menu, b);
                 return false;
             });
         } else {
             menu.replaceExistingItem(4, DISABLED_ITEM);
             menu.addMenuClickHandler(4, (p, slot, item, action) -> {
-                BlockStorage.addBlockInfo(b, ENABLED, "true");
+                SFStorage.setData(b, ENABLED, "true");
                 this.onNewInstance(menu, b);
                 return false;
             });
@@ -187,11 +188,11 @@ public abstract class ProtectingBlock extends MenuBlock implements EnergyNetComp
         }
 
         // removed all non-instances before, so safe cast
-        ProtectingBlock inst = Objects.requireNonNull((ProtectingBlock) BlockStorage.check(l));
+        ProtectingBlock inst = Objects.requireNonNull((ProtectingBlock) SFStorage.item(l));
 
         int range = getRange();
         for (BlockFace face : Util.SURROUNDING_FACES) {
-            if (BlockStorage.check(b.getRelative(face), BaseItems.SUPER_FAN.getItemId())) {
+            if (SFStorage.isItem(b.getRelative(face), BaseItems.SUPER_FAN.getItemId())) {
                 range += range * 0.15;
             }
         }

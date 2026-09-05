@@ -1,8 +1,9 @@
 package io.github.addoncommunity.galactifun.base.items.knowledge;
 
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import javax.annotation.Nonnull;
 
-import org.bukkit.ChatColor;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -32,16 +33,16 @@ public final class PlanetaryAnalyzer extends SimpleSlimefunItem<BlockUseHandler>
 
             PlanetaryWorld world = Galactifun.worldManager().getWorld(p.getWorld());
             if (world == null) {
-                p.sendMessage(ChatColor.RED + "You must be on a planet to use this!");
+                Messages.red(p, "You must be on a planet to use this!");
                 return;
             }
 
             if (PersistentDataAPI.getBoolean(world.worldStorage(), key)) {
-                p.sendMessage(ChatColor.RED + "Already analyzing!");
+                Messages.red(p, "Already analyzing!");
                 return;
             }
 
-            p.sendMessage(ChatColor.GREEN + "Analyzing planet " + world.name());
+            Messages.green(p, "Analyzing planet " + world.name());
             PersistentDataAPI.setBoolean(world.worldStorage(), key, true);
             Scheduler.run(30 * 60 * 20, () -> {
                 PersistentDataAPI.setBoolean(world.worldStorage(), key, false);

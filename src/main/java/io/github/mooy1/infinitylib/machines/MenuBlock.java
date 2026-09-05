@@ -1,5 +1,7 @@
 package io.github.mooy1.infinitylib.machines;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -20,7 +22,6 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import me.mrCookieSlime.Slimefun.api.inventory.DirtyChestMenu;
@@ -44,7 +45,7 @@ public abstract class MenuBlock extends SlimefunItem {
 
             @Override
             public void onPlayerBreak(BlockBreakEvent e, ItemStack itemStack, List<ItemStack> list) {
-                BlockMenu menu = BlockStorage.getInventory(e.getBlock());
+                BlockMenu menu = SFStorage.menu(e.getBlock());
                 if (menu != null) {
                     onBreak(e, menu);
                 }

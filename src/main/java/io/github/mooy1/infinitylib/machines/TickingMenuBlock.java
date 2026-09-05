@@ -1,5 +1,7 @@
 package io.github.mooy1.infinitylib.machines;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
 import javax.annotation.ParametersAreNonnullByDefault;
 
 import org.bukkit.block.Block;
@@ -9,9 +11,8 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 
 @ParametersAreNonnullByDefault
@@ -28,8 +29,8 @@ public abstract class TickingMenuBlock extends MenuBlock {
             }
 
             @Override
-            public void tick(Block b, SlimefunItem item, Config data) {
-                BlockMenu menu = BlockStorage.getInventory(b);
+            public void tick(Block b, SlimefunItem item, ASlimefunDataContainer data) {
+                BlockMenu menu = SFStorage.menu(b);
                 if (menu != null) {
                     TickingMenuBlock.this.tick(b, menu);
                 }

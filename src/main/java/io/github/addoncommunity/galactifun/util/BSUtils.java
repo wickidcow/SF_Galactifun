@@ -13,7 +13,6 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 
 import io.github.thebusybiscuit.slimefun4.libraries.dough.common.CommonPatterns;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 
 public class BSUtils {
 
@@ -28,13 +27,13 @@ public class BSUtils {
 
     @ParametersAreNonnullByDefault
     public static <T> void addBlockInfo(Block b, String key, T o, Function<T, String> map) {
-        BlockStorage.addBlockInfo(b, key, map.apply(o));
+        SFStorage.setData(b, key, map.apply(o));
     }
 
     @Nullable
     @ParametersAreNonnullByDefault
     public static <T> T getLocationInfo(Location l, String key, Function<String, T> map) {
-        String s = BlockStorage.getLocationInfo(l, key);
+        String s = SFStorage.getData(l, key);
         if (s == null) return null;
 
         return map.apply(s);
@@ -42,7 +41,7 @@ public class BSUtils {
 
     @ParametersAreNonnullByDefault
     public static int getStoredInt(Location l, String key) {
-        String s = BlockStorage.getLocationInfo(l, key);
+        String s = SFStorage.getData(l, key);
         if (s == null || s.isEmpty() || s.isBlank()) return 0;
 
         return Integer.parseInt(s);
@@ -50,7 +49,7 @@ public class BSUtils {
 
     @ParametersAreNonnullByDefault
     public static double getStoredDouble(Location l, String key) {
-        String s = BlockStorage.getLocationInfo(l, key);
+        String s = SFStorage.getData(l, key);
         if (s == null || s.isEmpty() || s.isBlank()) return 0;
 
         return Double.parseDouble(s);
@@ -58,7 +57,7 @@ public class BSUtils {
 
     @ParametersAreNonnullByDefault
     public static boolean getStoredBoolean(Location l, String key) {
-        return Boolean.parseBoolean(BlockStorage.getLocationInfo(l, key));
+        return Boolean.parseBoolean(SFStorage.getData(l, key));
     }
 
     @ParametersAreNonnullByDefault
@@ -68,7 +67,7 @@ public class BSUtils {
 
     @ParametersAreNonnullByDefault
     public static Location getStoredLocation(Location l, String key) {
-        String s = BlockStorage.getLocationInfo(l, key);
+        String s = SFStorage.getData(l, key);
         if (s == null || s.isEmpty() || s.isBlank()) return null;
 
         String[] split = CommonPatterns.SEMICOLON.split(s);
@@ -77,13 +76,13 @@ public class BSUtils {
 
     @ParametersAreNonnullByDefault
     public static void setStoredLocation(Location l, String key, Location location) {
-        BlockStorage.addBlockInfo(l, key, location.getX() + ";" + location.getY() + ";" + location.getZ() + ";" + location.getWorld().getUID());
+        SFStorage.setData(l, key, location.getX() + ";" + location.getY() + ";" + location.getZ() + ";" + location.getWorld().getUID());
     }
 
     @Nullable
     @ParametersAreNonnullByDefault
     public static OfflinePlayer getStoredPlayer(Location l) {
-        String s = BlockStorage.getLocationInfo(l, "player");
+        String s = SFStorage.getData(l, "player");
         if (s == null || s.isEmpty() || s.isBlank()) return null;
 
         return Bukkit.getOfflinePlayer(UUID.fromString(s));
@@ -91,7 +90,7 @@ public class BSUtils {
 
     @ParametersAreNonnullByDefault
     public static void setStoredPlayer(Location l, OfflinePlayer player) {
-        BlockStorage.addBlockInfo(l, "player", player.getUniqueId().toString());
+        SFStorage.setData(l, "player", player.getUniqueId().toString());
     }
 
 }

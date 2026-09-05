@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.api.worlds.populators.relics;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
 import java.util.Random;
 
 import javax.annotation.Nonnull;
@@ -15,7 +17,6 @@ import io.github.addoncommunity.galactifun.base.BaseItems;
 import io.github.addoncommunity.galactifun.util.Util;
 import io.github.mooy1.infinitylib.common.Scheduler;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 
 public class FallenSatellitePopulator extends BlockPopulator {
 
@@ -48,7 +49,7 @@ public class FallenSatellitePopulator extends BlockPopulator {
         region.setType(l, item.getType());
         Location copy = l.clone();
         copy.setWorld(region.getWorld());
-        Scheduler.run(() -> BlockStorage.addBlockInfo(copy, "id", item.getItemId()));
+        Scheduler.run(() -> SFStorage.setData(copy, "id", item.getItemId()));
     }
 
 }

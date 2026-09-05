@@ -26,7 +26,8 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 
 import io.github.addoncommunity.galactifun.base.aliens.Martian;
 import io.github.addoncommunity.galactifun.core.managers.AlienManager;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.common.ChatColors;
+import io.github.addoncommunity.galactifun.util.Messages;
+import net.kyori.adventure.text.Component;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.data.persistent.PersistentDataAPI;
 
 /**
@@ -41,7 +42,7 @@ public class Alien<T extends Mob> {
 
     private final Class<T> clazz;
     private final String id;
-    private final String name;
+    private final Component name;
     private final double spawnChance;
     private final double maxHealth;
     private AlienManager alienManager;
@@ -53,7 +54,7 @@ public class Alien<T extends Mob> {
 
         this.clazz = clazz;
         this.id = id;
-        this.name = ChatColors.color(name);
+        this.name = Messages.legacy(name);
         this.maxHealth = maxHealth;
         this.spawnChance = spawnChance;
     }
@@ -67,7 +68,7 @@ public class Alien<T extends Mob> {
 
         Objects.requireNonNull(mob.getAttribute(Attribute.MAX_HEALTH)).setBaseValue(this.maxHealth);
         mob.setHealth(this.maxHealth);
-        mob.setCustomName(this.name);
+        mob.customName(this.name);
         mob.setCustomNameVisible(true);
         mob.setRemoveWhenFarAway(true);
 

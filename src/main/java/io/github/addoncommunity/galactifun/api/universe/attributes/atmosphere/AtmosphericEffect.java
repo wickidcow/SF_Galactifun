@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.api.universe.attributes.atmosphere;
 
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -9,7 +11,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -87,7 +88,7 @@ public final class AtmosphericEffect {
 
     public void apply(@Nonnull Player p, int level) {
         if (level > 0) {
-            p.sendMessage(ChatColor.RED + "You have been exposed to " + this + "!");
+            Messages.red(p, "You have been exposed to " + this + "!");
             this.applier.accept(p, level);
         }
     }

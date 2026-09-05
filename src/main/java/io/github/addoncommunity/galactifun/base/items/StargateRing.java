@@ -1,10 +1,11 @@
 package io.github.addoncommunity.galactifun.base.items;
 
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.util.List;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
-import org.bukkit.ChatColor;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -26,7 +27,7 @@ public final class StargateRing extends SlimefunItem {
             public void onPlayerBreak(BlockBreakEvent e, ItemStack item, List<ItemStack> drops) {
                 if (BSUtils.getStoredBoolean(e.getBlock().getLocation(), "locked")) {
                     e.setCancelled(true);
-                    e.getPlayer().sendMessage(ChatColor.RED + "Deactivate the Stargate before destroying it");
+                    Messages.red(e.getPlayer(), "Deactivate the Stargate before destroying it");
                 }
             }
         });

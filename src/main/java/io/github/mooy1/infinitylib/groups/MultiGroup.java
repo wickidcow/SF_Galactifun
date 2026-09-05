@@ -5,7 +5,6 @@ import java.util.Comparator;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -69,7 +68,7 @@ public final class MultiGroup extends FlexItemGroup {
             menu.addItem(i, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
         }
 
-        String back = ChatColor.GRAY + Slimefun.getLocalization().getMessage(p, "guide.back.guide");
+        String back = Slimefun.getLocalization().getMessage(p, "guide.back.guide");
         menu.addItem(1, ChestMenuUtils.getBackButton(p, "", back));
         menu.addMenuClickHandler(1, (pl, s, is, action) -> {
             profile.getGuideHistory().goBack(guide);

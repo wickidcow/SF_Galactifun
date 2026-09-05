@@ -1,5 +1,6 @@
 package io.github.addoncommunity.galactifun.api.items.spacesuit;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import io.github.addoncommunity.galactifun.Galactifun;
+import io.github.addoncommunity.galactifun.util.Messages;
 import io.github.mooy1.infinitylib.common.StackUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -21,6 +23,7 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.ProtectionType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.ProtectiveArmor;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.common.ChatColors;
+import net.kyori.adventure.text.Component;
 
 @ParametersAreNonnullByDefault
 public class SpaceSuit extends SlimefunItem implements ProtectiveArmor {
@@ -90,13 +93,16 @@ public class SpaceSuit extends SlimefunItem implements ProtectiveArmor {
         oxygen = Math.max(0, Math.min(oxygen, maxOxygen));
         meta.getPersistentDataContainer().set(OXYGEN_KEY, PersistentDataType.INTEGER, oxygen);
         if (meta.hasLore()) {
-            List<String> lore = meta.getLore();
-            for (int i = 0; i < lore.size(); i++) {
-                if (lore.get(i).startsWith(OXYGEN_LORE)) {
-                    lore.set(i, oxygenLore(oxygen, maxOxygen));
+            List<Component> existingLore = meta.lore();
+            if (existingLore != null) {
+                List<Component> lore = new ArrayList<>(existingLore);
+                for (int i = 0; i < lore.size(); i++) {
+                    if (Messages.plain(lore.get(i)).startsWith("Oxygen: ")) {
+                        lore.set(i, Messages.legacySection(oxygenLore(oxygen, maxOxygen)));
+                    }
                 }
+                meta.lore(lore);
             }
-            meta.setLore(lore);
         }
     }
 

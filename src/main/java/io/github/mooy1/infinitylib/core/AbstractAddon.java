@@ -48,7 +48,7 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
      * Live Addon Constructor
      */
     public AbstractAddon(String githubUserName, String githubRepo, String autoUpdateBranch, String autoUpdateKey) {
-        boolean official = getDescription().getVersion().matches("DEV - \\d+ \\(git \\w+\\)");
+        boolean official = getPluginMeta().getVersion().matches("DEV - \\d+ \\(git \\w+\\)");
         this.updater = official ? new GitHubBuildsUpdater(this, getFile(),
                 githubUserName + "/" + githubRepo + "/" + autoUpdateBranch) : null;
         this.environment = Environment.LIVE;
@@ -220,20 +220,20 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
      */
     @Nonnull
     protected final AddonCommand getAddonCommand() {
-        return Objects.requireNonNull(instance().command, "Command '" + getName() + "' missing from plugin.yml!");
+        return Objects.requireNonNull(addonInstance().command, "Command '" + getName() + "' missing from plugin.yml!");
     }
 
     /**
      * Returns whether auto updates are enabled, for use in metrics
      */
     protected final boolean autoUpdatesEnabled() {
-        return instance().autoUpdatesEnabled;
+        return addonInstance().autoUpdatesEnabled;
     }
 
     @Nonnull
     @Override
     public final String getPluginVersion() {
-        return getDescription().getVersion();
+        return getPluginMeta().getVersion();
     }
 
     @Nonnull
@@ -251,17 +251,17 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
     @Nonnull
     @Override
     public final AddonConfig getConfig() {
-        return instance().config;
+        return addonInstance().config;
     }
 
     @Override
     public final void reloadConfig() {
-        instance().config.reload();
+        addonInstance().config.reload();
     }
 
     @Override
     public final void saveConfig() {
-        instance().config.save();
+        addonInstance().config.save();
     }
 
     @Override
@@ -271,18 +271,18 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <T extends AbstractAddon> T instance() {
+    public static <T extends AbstractAddon> T addonInstance() {
         return (T) Objects.requireNonNull(instance, "Addon is not enabled!");
     }
 
     @Nonnull
     public static AddonConfig config() {
-        return instance().getConfig();
+        return addonInstance().getConfig();
     }
 
     @SuppressWarnings("unused")
     public static void log(Level level, String... messages) {
-        Logger logger = instance().getLogger();
+        Logger logger = addonInstance().getLogger();
         for (String msg : messages) {
             logger.log(level, msg);
         }
@@ -292,7 +292,7 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
      * Returns the total number of Slimefun ticks that have occurred
      */
     public static int slimefunTickCount() {
-        return instance().slimefunTickCount;
+        return addonInstance().slimefunTickCount;
     }
 
     /**
@@ -300,7 +300,7 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
      */
     @Nonnull
     public static Environment environment() {
-        return instance().environment;
+        return addonInstance().environment;
     }
 
     /**
@@ -308,7 +308,7 @@ public abstract class AbstractAddon extends JavaPlugin implements SlimefunAddon 
      */
     @Nonnull
     public static NamespacedKey createKey(String s) {
-        return new NamespacedKey(instance(), s);
+        return new NamespacedKey(addonInstance(), s);
     }
 
 }

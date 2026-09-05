@@ -52,13 +52,13 @@ public abstract class AbstractMachineBlock extends TickingMenuBlock implements E
 
     @Override
     protected void tick(Block b, BlockMenu menu) {
-        if (getCharge(menu.getLocation()) < energyPerTick) {
+        if (getChargeLong(menu.getLocation()) < energyPerTick) {
             if (menu.hasViewer()) {
                 menu.replaceExistingItem(getStatusSlot(), NO_ENERGY_ITEM);
             }
         }
         else if (process(b, menu)) {
-            removeCharge(menu.getLocation(), energyPerTick);
+            removeCharge(menu.getLocation(), (long) energyPerTick);
         }
     }
 

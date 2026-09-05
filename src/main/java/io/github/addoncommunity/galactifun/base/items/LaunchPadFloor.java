@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.base.items;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -16,7 +18,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 
 public final class LaunchPadFloor extends SlimefunItem {
 
@@ -28,7 +29,7 @@ public final class LaunchPadFloor extends SlimefunItem {
             public void onPlayerBreak(@Nonnull BlockBreakEvent e, @Nonnull ItemStack itemStack, @Nonnull List<ItemStack> list) {
                 for (BlockFace face : Util.SURROUNDING_FACES) {
                     Block b = e.getBlock().getRelative(face);
-                    if (BlockStorage.check(b, BaseItems.LAUNCH_PAD_CORE.getItemId()) && !LaunchPadCore.canBreak(e.getPlayer(), b)) {
+                    if (SFStorage.isItem(b, BaseItems.LAUNCH_PAD_CORE.getItemId()) && !LaunchPadCore.canBreak(e.getPlayer(), b)) {
                         e.setCancelled(true);
                     }
                 }

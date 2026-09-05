@@ -5,7 +5,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -23,6 +22,7 @@ import io.github.thebusybiscuit.slimefun4.core.attributes.EnergyNetComponent;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
 import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetComponentType;
 import io.github.addoncommunity.galactifun.util.CustomItemStack;
+import io.github.addoncommunity.galactifun.util.Messages;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
@@ -85,12 +85,9 @@ public final class AssemblyTable extends CraftingBlock implements EnergyNetCompo
 
     @Override
     protected void craft(Block b, BlockMenu menu, Player p) {
-        int charge = getCharge(menu.getLocation());
+        long charge = getChargeLong(menu.getLocation());
         if (charge < this.energy) {
-            p.sendMessage(
-                    ChatColor.RED + "Not enough energy!\n" +
-                    ChatColor.GREEN + "Charge: " + ChatColor.RED + charge + ChatColor.GREEN + "/" + this.energy + " J"
-            );
+            p.sendMessage(Messages.legacy("&cNot enough energy!\n&aCharge: &c" + charge + "&a/" + this.energy + " J"));
         }
         else {
             super.craft(b, menu, p);
@@ -99,7 +96,7 @@ public final class AssemblyTable extends CraftingBlock implements EnergyNetCompo
 
     @Override
     protected void onSuccessfulCraft(BlockMenu menu, ItemStack toOutput) {
-        setCharge(menu.getLocation(), 0);
+        setCharge(menu.getLocation(), 0L);
     }
 
     @Nonnull

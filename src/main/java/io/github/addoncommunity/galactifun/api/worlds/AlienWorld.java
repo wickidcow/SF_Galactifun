@@ -40,7 +40,6 @@ import io.github.addoncommunity.galactifun.api.worlds.populators.relics.FallenSa
 import io.github.addoncommunity.galactifun.base.universe.earth.EarthOrbit;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 
 /**
  * Any alien world
@@ -155,7 +154,7 @@ public abstract class AlienWorld extends PlanetaryWorld {
     }
 
     /**
-     * To allow worlds to be made of {@link SlimefunItem}s without using huge amounts of {@link BlockStorage},
+     * To allow worlds to be made of {@link SlimefunItem}s without using huge amounts of {@link io.github.addoncommunity.galactifun.util.SFStorage},
      * I invented block mappings. Simply pass a {@link Material} and a {@link SlimefunItemStack}, and any
      * generated {@code vanillaItem}s will drop {@code slimefunItem}s
      */

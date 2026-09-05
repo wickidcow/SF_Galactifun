@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.core.commands;
 
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -8,7 +10,6 @@ import javax.annotation.Nonnull;
 
 import io.github.addoncommunity.galactifun.Galactifun;
 
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -26,7 +27,7 @@ public final class SealedCommand extends SubCommand {
     public void execute(@Nonnull CommandSender commandSender, @Nonnull String[] strings) {
         if (!(commandSender instanceof Player p)) return;
         if (strings.length != 1) {
-            p.sendMessage(ChatColor.RED + "Usage: /galactifun sealed <range>");
+            Messages.red(p, "Usage: /galactifun sealed <range>");
             return;
         }
 
@@ -35,12 +36,12 @@ public final class SealedCommand extends SubCommand {
         try {
             range = Integer.parseInt(strings[0]);
         } catch (NumberFormatException e) {
-            p.sendMessage(ChatColor.RED + "Range must be an integer between 1 and " + Galactifun.instance().getConfig().getInt("other.sealed-command-max-range"));
+            Messages.red(p, "Range must be an integer between 1 and " + Galactifun.instance().getConfig().getInt("other.sealed-command-max-range"));
             return;
         }
 
         if (range < 1 || range > Galactifun.instance().getConfig().getInt("other.sealed-command-max-range")) {
-            p.sendMessage(ChatColor.RED + "Range must be an integer between 1 and " + Galactifun.instance().getConfig().getInt("other.sealed-command-max-range"));
+            Messages.red(p, "Range must be an integer between 1 and " + Galactifun.instance().getConfig().getInt("other.sealed-command-max-range"));
             return;
         }
 

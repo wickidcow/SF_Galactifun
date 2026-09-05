@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.core.commands;
 
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
@@ -7,7 +9,6 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -46,7 +47,7 @@ public class AlienRemoveCommand extends SubCommand {
 
             entity.remove();
         } catch (IllegalArgumentException ignored) {
-            p.sendMessage(ChatColor.RED + "Invalid UUID!");
+            Messages.red(p, "Invalid UUID!");
         }
     }
 

@@ -13,19 +13,19 @@ public final class Scheduler {
     private Scheduler() {}
 
     public static BukkitTask run(Runnable runnable) {
-        return Bukkit.getScheduler().runTask(AbstractAddon.instance(), runnable);
+        return Bukkit.getScheduler().runTask(AbstractAddon.addonInstance(), runnable);
     }
 
     public static BukkitTask runAsync(Runnable runnable) {
-        return Bukkit.getScheduler().runTaskAsynchronously(AbstractAddon.instance(), runnable);
+        return Bukkit.getScheduler().runTaskAsynchronously(AbstractAddon.addonInstance(), runnable);
     }
 
     public static BukkitTask run(int delayTicks, Runnable runnable) {
-        return Bukkit.getScheduler().runTaskLater(AbstractAddon.instance(), runnable, delayTicks);
+        return Bukkit.getScheduler().runTaskLater(AbstractAddon.addonInstance(), runnable, delayTicks);
     }
 
     public static BukkitTask runAsync(int delayTicks, Runnable runnable) {
-        return Bukkit.getScheduler().runTaskLaterAsynchronously(AbstractAddon.instance(), runnable, delayTicks);
+        return Bukkit.getScheduler().runTaskLaterAsynchronously(AbstractAddon.addonInstance(), runnable, delayTicks);
     }
 
     public static BukkitTask repeat(int intervalTicks, Runnable runnable) {
@@ -37,10 +37,10 @@ public final class Scheduler {
     }
 
     public static BukkitTask repeat(int intervalTicks, int delayTicks, Runnable runnable) {
-        return Bukkit.getScheduler().runTaskTimer(AbstractAddon.instance(), runnable, delayTicks, Math.max(1, intervalTicks));
+        return Bukkit.getScheduler().runTaskTimer(AbstractAddon.addonInstance(), runnable, delayTicks, Math.max(1, intervalTicks));
     }
 
     public static BukkitTask repeatAsync(int intervalTicks, int delayTicks, Runnable runnable) {
-        return Bukkit.getScheduler().runTaskTimerAsynchronously(AbstractAddon.instance(), runnable, delayTicks, Math.max(1, intervalTicks));
+        return Bukkit.getScheduler().runTaskTimerAsynchronously(AbstractAddon.addonInstance(), runnable, delayTicks, Math.max(1, intervalTicks));
     }
 }

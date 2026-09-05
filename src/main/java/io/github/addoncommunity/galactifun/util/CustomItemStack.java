@@ -1,14 +1,13 @@
 package io.github.addoncommunity.galactifun.util;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import net.kyori.adventure.text.Component;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 
@@ -86,14 +85,11 @@ public class CustomItemStack extends ItemStack {
         ItemMeta meta = getItemMeta();
         if (meta != null) {
             if (name != null) {
-                meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+                meta.displayName(Messages.legacy(name));
             }
             if (lore != null && !lore.isEmpty()) {
-                List<String> list = new ArrayList<>();
-                for (String line : lore) {
-                    list.add(ChatColor.translateAlternateColorCodes('&', line));
-                }
-                meta.setLore(list);
+                List<Component> components = lore.stream().map(Messages::legacy).toList();
+                meta.lore(components);
             }
             setItemMeta(meta);
         }

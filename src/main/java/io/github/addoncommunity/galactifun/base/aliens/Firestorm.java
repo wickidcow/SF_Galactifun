@@ -11,7 +11,8 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
-import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataType;
 
 import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.api.aliens.Alien;
@@ -21,6 +22,9 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 public final class Firestorm extends Alien<Blaze> implements Listener {
 
+    private static NamespacedKey electrifiedKey() {
+        return new NamespacedKey(Galactifun.instance(), "electrified");
+    }
 
     public Firestorm(@Nonnull String id, @Nonnull String name, double maxHealth, double spawnChance) {
         super(Blaze.class, id, name, maxHealth, spawnChance);
@@ -30,10 +34,8 @@ public final class Firestorm extends Alien<Blaze> implements Listener {
 
     @Override
     public void onShoot(@Nonnull ProjectileLaunchEvent e) {
-        e.getEntity().setMetadata("electrified", new FixedMetadataValue(
-                Galactifun.instance(),
-                true
-        ));
+        e.getEntity().getPersistentDataContainer().set(
+                electrifiedKey(), PersistentDataType.BYTE, (byte) 1);
     }
 
     @Override
@@ -46,7 +48,7 @@ public final class Firestorm extends Alien<Blaze> implements Listener {
     @EventHandler(ignoreCancelled = true)
     private void onFireballHit(ProjectileHitEvent e) {
         Projectile projectile = e.getEntity();
-        if (projectile.hasMetadata("electrified")) {
+        if (projectile.getPersistentDataContainer().has(electrifiedKey(), PersistentDataType.BYTE)) {
             projectile.getWorld().strikeLightning(projectile.getLocation());
         }
     }

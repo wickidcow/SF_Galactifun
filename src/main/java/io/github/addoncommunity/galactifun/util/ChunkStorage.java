@@ -13,10 +13,9 @@ import org.bukkit.block.Block;
 import com.google.common.collect.Iterables;
 import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.blocks.BlockPosition;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 
 /**
- * Class that uses {@link BlockPosition}s to store boolean tags on blocks. To be used instead of {@link BlockStorage}
+ * Class that uses {@link BlockPosition}s to store boolean tags on blocks. To be used instead of {@link io.github.addoncommunity.galactifun.util.SFStorage}
  */
 public final class ChunkStorage {
 

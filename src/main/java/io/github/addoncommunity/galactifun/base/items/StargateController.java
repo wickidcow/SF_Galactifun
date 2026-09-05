@@ -1,5 +1,10 @@
 package io.github.addoncommunity.galactifun.base.items;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
+import io.github.addoncommunity.galactifun.util.Messages;
+import io.github.addoncommunity.galactifun.util.TeleportAccess;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -9,7 +14,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -20,7 +24,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataType;
 
 import com.destroystokyo.paper.event.player.PlayerTeleportEndGatewayEvent;
 import io.github.addoncommunity.galactifun.Galactifun;
@@ -42,13 +47,16 @@ import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 // TODO clean up if possible
 public final class StargateController extends SlimefunItem implements Listener {
+
+    private static NamespacedKey stargateCooldownKey() {
+        return new NamespacedKey(Galactifun.instance(), "stargate_cooldown");
+    }
 
     private static final int[] BACKGROUND = new int[] { 1, 2, 6, 7, 8 };
     private static final int ADDRESS_SLOT = 3;
@@ -114,9 +122,9 @@ public final class StargateController extends SlimefunItem implements Listener {
             @Override
             @ParametersAreNonnullByDefault
             public void onPlayerBreak(BlockBreakEvent e, ItemStack item, List<ItemStack> drops) {
-                if (Boolean.parseBoolean(BlockStorage.getLocationInfo(e.getBlock().getLocation(), "locked"))) {
+                if (Boolean.parseBoolean(SFStorage.getData(e.getBlock().getLocation(), "locked"))) {
                     e.setCancelled(true);
-                    e.getPlayer().sendMessage(ChatColor.RED + "Deactivate the Stargate before destroying it");
+                    Messages.red(e.getPlayer(), "Deactivate the Stargate before destroying it");
                 }
             }
         });
@@ -162,13 +170,13 @@ public final class StargateController extends SlimefunItem implements Listener {
 
     public static void lockBlocks(Block controller, boolean lock) {
         String data = Boolean.toString(lock);
-        getRingBlocks(controller).ifPresent(l -> l.forEach(b -> BlockStorage.addBlockInfo(b, "locked", data)));
-        getPortalBlocks(controller).ifPresent(l -> l.forEach(b -> BlockStorage.addBlockInfo(b, "locked", data)));
+        getRingBlocks(controller).ifPresent(l -> l.forEach(b -> SFStorage.setData(b, "locked", data)));
+        getPortalBlocks(controller).ifPresent(l -> l.forEach(b -> SFStorage.setData(b, "locked", data)));
     }
 
     private void onUse(PlayerRightClickEvent event, Player p, Block b) {
         if (!isPartOfStargate(b)) {
-            p.sendMessage(ChatColor.RED + "The Stargate is not assembled!");
+            Messages.red(p, "The Stargate is not assembled!");
             return;
         }
         event.cancel();
@@ -182,13 +190,13 @@ public final class StargateController extends SlimefunItem implements Listener {
                 gateway.update(false, false);
             }
 
-            String destAddress = BlockStorage.getLocationInfo(b.getLocation(), "destination");
+            String destAddress = SFStorage.getData(b.getLocation(), "destination");
             if (destAddress != null) {
                 setDestination(destAddress, b, p);
             }
 
             lockBlocks(b, true);
-            p.sendMessage(ChatColor.YELLOW + "Stargate activated!");
+            Messages.yellow(p, "Stargate activated!");
             return;
         }
 
@@ -205,7 +213,7 @@ public final class StargateController extends SlimefunItem implements Listener {
 
         Location l = b.getLocation();
 
-        String address = BlockStorage.getLocationInfo(l, "gfsgAddress");
+        String address = SFStorage.getData(l, "gfsgAddress");
         if (address == null) {
             String lString = String.format(
                     "%s-%d-%d-%d",
@@ -215,10 +223,10 @@ public final class StargateController extends SlimefunItem implements Listener {
                     l.getBlockZ()
             );
             address = Integer.toHexString(lString.hashCode());
-            BlockStorage.addBlockInfo(b, "gfsgAddress", address);
+            SFStorage.setData(b, "gfsgAddress", address);
         }
 
-        String destination = BlockStorage.getLocationInfo(l, "destination");
+        String destination = SFStorage.getData(l, "destination");
         destination = destination == null ? "" : destination;
 
         String temp = address;
@@ -245,7 +253,7 @@ public final class StargateController extends SlimefunItem implements Listener {
             getPortalBlocks(b).ifPresent(li -> {
                 for (Block block : li) {
                     block.setType(Material.AIR);
-                    BlockStorage.clearBlockInfo(block);
+                    SFStorage.remove(block);
                 }
             });
             lockBlocks(b, false);
@@ -258,7 +266,7 @@ public final class StargateController extends SlimefunItem implements Listener {
                 "&fClick to Set Destination",
                 "&7Current Destination: " + destination
         ), (p, i, s, c) -> {
-            p.sendMessage(ChatColor.YELLOW + "Type in the destination address");
+            Messages.yellow(p, "Type in the destination address");
             ChatUtils.awaitInput(p, st -> setDestination(st, b, p));
             p.closeInventory();
             return false;
@@ -288,19 +296,19 @@ public final class StargateController extends SlimefunItem implements Listener {
         }
 
         if (dest == null) {
-            p.sendMessage(ChatColor.RED + "No destination found! Make sure the destination world/chunk is loaded.");
+            Messages.red(p, "No destination found! Make sure the destination world/chunk is loaded.");
             return;
         }
 
         Optional<List<Block>> portalOptional = getPortalBlocks(b);
         if (portalOptional.isEmpty()) {
-            p.sendMessage(ChatColor.RED + "The Stargate is not lit for some reason...");
+            Messages.red(p, "The Stargate is not lit for some reason...");
             return;
         }
 
         BSUtils.setStoredLocation(b.getLocation(), "dest", dest);
 
-        p.sendMessage(ChatColor.YELLOW + String.format(
+        Messages.yellow(p, String.format(
                 "Set Stargate destination to %d %d %d in %s",
                 dest.getBlockX(),
                 dest.getBlockY(),
@@ -308,35 +316,35 @@ public final class StargateController extends SlimefunItem implements Listener {
                 dest.getWorld().getName()
         ));
 
-        BlockStorage.addBlockInfo(b, "destination", destination);
+        SFStorage.setData(b, "destination", destination);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onGateBreak(BlockBreakEvent e) {
         Block b = e.getBlock();
         if (b.getType() == Material.END_GATEWAY &&
-                Boolean.parseBoolean(BlockStorage.getLocationInfo(b.getLocation(), "locked"))) {
+                Boolean.parseBoolean(SFStorage.getData(b.getLocation(), "locked"))) {
             e.setCancelled(true);
-            e.getPlayer().sendMessage(ChatColor.RED + "Deactivate the Stargate before destroying it");
+            Messages.red(e.getPlayer(), "Deactivate the Stargate before destroying it");
         }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onUsePortal(PlayerTeleportEndGatewayEvent e) {
         Location exit = e.getGateway().getExitLocation();
-        if (exit == null || !(BlockStorage.check(exit) instanceof StargateController)) return;
+        if (exit == null || !(SFStorage.item(exit) instanceof StargateController)) return;
         Location dest = BSUtils.getStoredLocation(exit, "dest");
         if (dest == null) return;
 
         e.setCancelled(true);
 
         Player p = e.getPlayer();
-        if (p.hasMetadata("disableStargate")) return;
+        if (p.getPersistentDataContainer().has(stargateCooldownKey(), PersistentDataType.BYTE)) return;
 
         Block b = dest.getBlock();
-        if (BlockStorage.check(b, BaseItems.STARGATE_CONTROLLER.getItemId()) &&
+        if (SFStorage.isItem(b, BaseItems.STARGATE_CONTROLLER.getItemId()) &&
                 StargateController.getPortalBlocks(b).isEmpty()) {
-            p.sendMessage(ChatColor.RED + "The destination Stargate is not activated");
+            Messages.red(p, "The destination Stargate is not activated");
             return;
         }
 
@@ -345,20 +353,21 @@ public final class StargateController extends SlimefunItem implements Listener {
             // Check if the player is teleporting to an alien world, and if so, allow them to
             AlienWorld world = Galactifun.worldManager().getAlienWorld(destBlock.getWorld());
             if (world != null) {
-                e.getPlayer().setMetadata("CanTpAlienWorld", new FixedMetadataValue(Galactifun.instance(), true));
+                TeleportAccess.grant(e.getPlayer());
             }
             p.teleportAsync(destBlock.getLocation());
-            p.setMetadata("disableStargate", new FixedMetadataValue(Galactifun.instance(), true));
-            Scheduler.run(10, () -> p.removeMetadata("disableStargate", Galactifun.instance()));
+            NamespacedKey cooldownKey = stargateCooldownKey();
+            p.getPersistentDataContainer().set(cooldownKey, PersistentDataType.BYTE, (byte) 1);
+            Scheduler.run(10, () -> p.getPersistentDataContainer().remove(cooldownKey));
         } else {
-            p.sendMessage(ChatColor.RED + "The destination is blocked");
+            Messages.red(p, "The destination is blocked");
         }
     }
 
     private static final record ComponentPosition(int y, int z) {
 
         public boolean isInSameRing(@Nonnull Block b) {
-            return BlockStorage.check(b.getRelative(0, this.y, this.z)) instanceof StargateRing;
+            return SFStorage.item(b.getRelative(0, this.y, this.z)) instanceof StargateRing;
         }
 
         @Nonnull

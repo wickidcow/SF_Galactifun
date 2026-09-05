@@ -1,11 +1,12 @@
 package io.github.addoncommunity.galactifun.core.commands;
 
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.util.List;
 
 import javax.annotation.Nonnull;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -37,7 +38,7 @@ public final class GalactiportCommand extends SubCommand {
         World world = Bukkit.getWorld(strings[0]);
 
         if (world == null) {
-            p.sendMessage(ChatColor.RED + "Invalid World!");
+            Messages.red(p, "Invalid World!");
             return;
         }
 

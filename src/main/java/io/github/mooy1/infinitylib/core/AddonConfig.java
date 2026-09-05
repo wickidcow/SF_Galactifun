@@ -30,7 +30,7 @@ public final class AddonConfig extends YamlConfiguration {
     private final File file;
 
     public AddonConfig(String path) {
-        AbstractAddon addon = AbstractAddon.instance();
+        AbstractAddon addon = AbstractAddon.addonInstance();
         file = new File(addon.getDataFolder(), path);
         super.defaults = defaults;
         loadDefaults(addon, path);
@@ -104,14 +104,8 @@ public final class AddonConfig extends YamlConfiguration {
 
     @Nonnull
     @Override
-    protected String buildHeader() {
-        return "";
-    }
-
-    @Nonnull
-    @Override
     public String saveToString() {
-        options().copyDefaults(true).copyHeader(false).indent(2);
+        options().copyDefaults(true).parseComments(false).indent(2);
         String defaultSave = super.saveToString();
 
         try {

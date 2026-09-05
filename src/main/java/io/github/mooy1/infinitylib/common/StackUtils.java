@@ -1,5 +1,7 @@
 package io.github.mooy1.infinitylib.common;
 
+import java.util.Objects;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -72,7 +74,7 @@ public final class StackUtils {
                         if (first.getType() == second.getType()) {
                             if (firstMeta.hasDisplayName()) {
                                 return secondMeta.hasDisplayName()
-                                        && firstMeta.getDisplayName().equals(secondMeta.getDisplayName());
+                                        && Objects.equals(firstMeta.displayName(), secondMeta.displayName());
                             } else {
                                 return !secondMeta.hasDisplayName();
                             }

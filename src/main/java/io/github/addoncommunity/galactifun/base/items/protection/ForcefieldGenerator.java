@@ -25,7 +25,7 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetComponentType;
-import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 
 public final class ForcefieldGenerator extends SlimefunItem implements EnergyNetComponent {
@@ -43,7 +43,7 @@ public final class ForcefieldGenerator extends SlimefunItem implements EnergyNet
             }
 
             @Override
-            public void tick(Block b, SlimefunItem item, Config data) {
+            public void tick(Block b, SlimefunItem item, ASlimefunDataContainer data) {
                 ForcefieldGenerator.this.tick(b, data);
             }
         });
@@ -78,12 +78,12 @@ public final class ForcefieldGenerator extends SlimefunItem implements EnergyNet
         });
     }
 
-    private void tick(Block b, Config data) {
-        boolean active = Boolean.parseBoolean(data.getString(ACTIVE));
-        if (active && getCharge(b.getLocation()) < ENERGY_CONSUMPTION) {
+    private void tick(Block b, ASlimefunDataContainer data) {
+        boolean active = Boolean.parseBoolean(data.getData(ACTIVE));
+        if (active && getChargeLong(b.getLocation(), data) < ENERGY_CONSUMPTION) {
             deactivate(b);
         } else {
-            removeCharge(b.getLocation(), ENERGY_CONSUMPTION);
+            removeCharge(b.getLocation(), (long) ENERGY_CONSUMPTION, data);
         }
     }
 

@@ -1,6 +1,7 @@
 package io.github.addoncommunity.galactifun.base.items.knowledge;
 
-import org.bukkit.ChatColor;
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -28,12 +29,12 @@ public final class Observatory extends MultiBlockMachine {
 
         PlanetaryWorld world = Galactifun.worldManager().getWorld(p.getWorld());
         if (world == null) {
-            p.sendMessage(ChatColor.RED + "You must be on a planet to use this!");
+            Messages.red(p, "You must be on a planet to use this!");
             return;
         }
 
         if (PersistentDataAPI.getBoolean(world.worldStorage(), key)) {
-            p.sendMessage(ChatColor.RED + "Already observing!");
+            Messages.red(p, "Already observing!");
             return;
         }
 
@@ -44,7 +45,7 @@ public final class Observatory extends MultiBlockMachine {
             }
             return true;
         }, (pl, w) -> {
-            pl.sendMessage(ChatColor.GREEN + "Observing planet " + w.name());
+            Messages.green(pl, "Observing planet " + w.name());
             PersistentDataAPI.setBoolean(world.worldStorage(), key, true);
             Scheduler.run(30 * 60 * 20, () -> {
                 PersistentDataAPI.setBoolean(world.worldStorage(), key, false);

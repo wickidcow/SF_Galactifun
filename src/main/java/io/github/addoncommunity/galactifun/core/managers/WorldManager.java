@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.core.managers;
 
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -16,7 +18,6 @@ import javax.annotation.Nullable;
 
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -49,7 +50,6 @@ import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.MetadataValue;
 
 import com.destroystokyo.paper.event.player.PlayerTeleportEndGatewayEvent;
 import io.github.addoncommunity.galactifun.Galactifun;
@@ -62,6 +62,7 @@ import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
 import io.github.addoncommunity.galactifun.base.BaseUniverse;
 import io.github.addoncommunity.galactifun.base.universe.earth.Earth;
 import io.github.addoncommunity.galactifun.util.ChunkStorage;
+import io.github.addoncommunity.galactifun.util.TeleportAccess;
 import io.github.mooy1.infinitylib.common.Events;
 import io.github.mooy1.infinitylib.common.Scheduler;
 import io.github.thebusybiscuit.slimefun4.api.events.ExplosiveToolBreakBlocksEvent;
@@ -151,7 +152,7 @@ public final class WorldManager implements Listener {
                         && !Galactifun.protectionManager().isOxygenBlock(p.getLocation())
                         && !SpaceSuitProfile.get(p).consumeOxygen(20)
                         && !p.isDead()) {
-                    p.sendMessage(ChatColor.RED + "You have run out of oxygen!");
+                    Messages.red(p, "You have run out of oxygen!");
                     double damage = oxygenDamage.merge(p.getUniqueId(), 2L, (a, b) -> a * b);
                     p.setHealth(Math.max(p.getHealth() - damage, 0));
                 } else {
@@ -236,13 +237,7 @@ public final class WorldManager implements Listener {
                         && !BaseUniverse.EARTH.equals(fromWorld)
                         || (BaseUniverse.EARTH.equals(fromWorld) && toWorld != null)
                 ) {
-                    boolean canTp = false;
-                    for (MetadataValue value : e.getPlayer().getMetadata("CanTpAlienWorld")) {
-                        canTp |= value.asBoolean();
-                    }
-                    if (canTp) {
-                        e.getPlayer().removeMetadata("CanTpAlienWorld", Galactifun.instance());
-                    } else {
+                    if (!TeleportAccess.consume(e.getPlayer())) {
                         e.setCancelled(true);
                     }
                 }
@@ -351,7 +346,7 @@ public final class WorldManager implements Listener {
         Block b = e.getClickedBlock();
         if (b != null && Tag.BEDS.isTagged(b.getType())) {
             e.setCancelled(true);
-            p.setBedSpawnLocation(p.getLocation(), true);
+            p.setRespawnLocation(p.getLocation(), true);
             p.sendMessage("Respawn point set");
         }
     }
@@ -375,10 +370,9 @@ public final class WorldManager implements Listener {
                 if (timeSince < (60 * 1000)) {
                     int times = this.respawnTimes.merge(p.getUniqueId(), 1, Integer::sum);
                     if (times > 3) {
-                        p.sendMessage(ChatColor.YELLOW + """
+                        Messages.yellow(p, """
                                 A possible respawn loop has been detected!
-                                Do you wish to go back to Earth? (yes/no)"""
-                        );
+                                Do you wish to go back to Earth? (yes/no)""");
                         ChatUtils.awaitInput(p, s -> {
                             if (s.equalsIgnoreCase("yes")) {
                                 PaperLib.teleportAsync(p, BaseUniverse.EARTH.world().getSpawnLocation());

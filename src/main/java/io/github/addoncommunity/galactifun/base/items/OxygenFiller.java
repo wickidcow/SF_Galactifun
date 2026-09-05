@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.base.items;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
 import javax.annotation.Nonnull;
 
 import org.bukkit.Material;
@@ -17,7 +19,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 
 public final class OxygenFiller extends AContainer {
@@ -33,11 +34,11 @@ public final class OxygenFiller extends AContainer {
             return;
         }
 
-        if (getCharge(b.getLocation()) < getEnergyConsumption()) {
+        if (getChargeLong(b.getLocation()) < getEnergyConsumption()) {
             return;
         }
 
-        BlockMenu inv = BlockStorage.getInventory(b);
+        BlockMenu inv = SFStorage.menu(b);
 
         for (int slot : getInputSlots()) {
             ItemStack item = inv.getItemInSlot(slot);
@@ -55,7 +56,7 @@ public final class OxygenFiller extends AContainer {
             int oxygen = suit.getOxygen(meta);
 
             if (oxygen < suit.maxOxygen()) {
-                removeCharge(b.getLocation(), getEnergyConsumption());
+                removeCharge(b.getLocation(), (long) getEnergyConsumption());
                 suit.setOxygen(meta, oxygen + getSpeed());
                 item.setItemMeta(meta);
                 return true;

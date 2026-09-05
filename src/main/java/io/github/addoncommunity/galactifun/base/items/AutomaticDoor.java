@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.base.items;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.UUID;
@@ -28,9 +30,8 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
-import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 
@@ -53,15 +54,15 @@ public final class AutomaticDoor extends MenuBlock {
             }
 
             @Override
-            public void tick(Block b, SlimefunItem item, Config data) {
-                AutomaticDoor.this.tick(BlockStorage.getInventory(b), b);
+            public void tick(Block b, SlimefunItem item, ASlimefunDataContainer data) {
+                AutomaticDoor.this.tick(SFStorage.menu(b), b);
             }
         });
     }
 
     @Override
     protected void onPlace(@Nonnull BlockPlaceEvent e, @Nonnull Block b) {
-        BlockStorage.addBlockInfo(b, "player", e.getPlayer().getUniqueId().toString());
+        SFStorage.setData(b, "player", e.getPlayer().getUniqueId().toString());
     }
 
     private void tick(@Nonnull BlockMenu menu, @Nonnull Block b) {
@@ -77,7 +78,7 @@ public final class AutomaticDoor extends MenuBlock {
                 BlockFace direction = ((Directional) b.getBlockData()).getFacing();
                 Block startBlock = l.clone().add(direction.getDirection()).getBlock();
                 if (startBlock.isEmpty()) {
-                    BlockStorage.addBlockInfo(l, ACTIVE, "false");
+                    SFStorage.setData(l, ACTIVE, "false");
                     return;
                 }
 
@@ -88,7 +89,7 @@ public final class AutomaticDoor extends MenuBlock {
                 if (item != null && bannedTypes.contains(item.getType())) return;
 
                 if (item == null || item.getType().isAir() || item.getType() == mat) {
-                    OfflinePlayer p = Bukkit.getOfflinePlayer(UUID.fromString(BlockStorage.getLocationInfo(l, "player")));
+                    OfflinePlayer p = Bukkit.getOfflinePlayer(UUID.fromString(SFStorage.getData(l, "player")));
                     if (!Slimefun.getProtectionManager().hasPermission(p, l, Interaction.BREAK_BLOCK)) return;
 
                     int size = item == null || item.getType().isAir() ?
@@ -96,14 +97,14 @@ public final class AutomaticDoor extends MenuBlock {
                             item.getMaxStackSize() - item.getAmount();
                     ItemStack itemStack = new ItemStack(mat);
                     for (int i = 0; i < size; i++) {
-                        if (startBlock.isEmpty() || startBlock.getType() != mat || BlockStorage.hasBlockInfo(startBlock)) break;
+                        if (startBlock.isEmpty() || startBlock.getType() != mat || SFStorage.hasData(startBlock)) break;
 
                         startBlock.setType(Material.AIR);
                         menu.pushItem(itemStack.clone(), INPUT_SLOT);
                         startBlock = startBlock.getRelative(direction);
                     }
 
-                    BlockStorage.addBlockInfo(l, ACTIVE, "false");
+                    SFStorage.setData(l, ACTIVE, "false");
                 }
             }
         } else {
@@ -115,7 +116,7 @@ public final class AutomaticDoor extends MenuBlock {
                     // banned block
                     if (bannedTypes.contains(stack.getType())) return;
 
-                    OfflinePlayer p = Bukkit.getOfflinePlayer(UUID.fromString(BlockStorage.getLocationInfo(l, "player")));
+                    OfflinePlayer p = Bukkit.getOfflinePlayer(UUID.fromString(SFStorage.getData(l, "player")));
                     if (!Slimefun.getProtectionManager().hasPermission(p, l, Interaction.PLACE_BLOCK)) return;
 
                     Location start = l.clone();
@@ -134,7 +135,7 @@ public final class AutomaticDoor extends MenuBlock {
                         menu.consumeItem(INPUT_SLOT);
                     }
                     if (closeDoor) {
-                        BlockStorage.addBlockInfo(l, ACTIVE, "true");
+                        SFStorage.setData(l, ACTIVE, "true");
                     }
                 }
             }

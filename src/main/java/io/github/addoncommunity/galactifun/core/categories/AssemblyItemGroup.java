@@ -5,7 +5,6 @@ import java.util.Map;
 
 import javax.annotation.Nonnull;
 
-import org.bukkit.ChatColor;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -19,6 +18,7 @@ import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.addoncommunity.galactifun.util.CustomItemStack;
+import io.github.addoncommunity.galactifun.util.Messages;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 
@@ -60,7 +60,7 @@ public final class AssemblyItemGroup extends FlexItemGroup {
         }
 
         menu.addItem(1, new CustomItemStack(ChestMenuUtils.getBackButton(p, "",
-                ChatColor.GRAY + Slimefun.getLocalization().getMessage(p, "guide.back.guide")))
+                Slimefun.getLocalization().getMessage(p, "guide.back.guide")))
         );
         menu.addMenuClickHandler(1, (p12, slot, item, action) -> {
             profile.getGuideHistory().goBack(Slimefun.getRegistry().getSlimefunGuide(layout));
@@ -86,13 +86,15 @@ public final class AssemblyItemGroup extends FlexItemGroup {
     }
 
     private void displayItem(Player p, PlayerProfile profile, Map.Entry<ItemStack, ItemStack[]> item) {
-        String displayName = item.getKey().hasItemMeta() && item.getKey().getItemMeta().hasDisplayName() ?
-                item.getKey().getItemMeta().getDisplayName() : item.getKey().getType().name();
+        String displayName = item.getKey().hasItemMeta() && item.getKey().getItemMeta().hasDisplayName()
+                && item.getKey().getItemMeta().displayName() != null
+                ? Messages.plain(item.getKey().getItemMeta().displayName())
+                : item.getKey().getType().name();
         ChestMenu menu = new ChestMenu("Recipe for " + displayName);
         menu.setEmptySlotsClickable(false);
 
         menu.addItem(0, new CustomItemStack(ChestMenuUtils.getBackButton(p, "",
-                ChatColor.GRAY + Slimefun.getLocalization().getMessage(p, "guide.back.guide")))
+                Slimefun.getLocalization().getMessage(p, "guide.back.guide")))
         );
         menu.addMenuClickHandler(0, (p12, slot, it, action) -> {
             this.open(p, profile, SlimefunGuideMode.SURVIVAL_MODE);

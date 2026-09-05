@@ -33,7 +33,7 @@ public final class AddonCommand extends ParentCommand implements TabExecutor, Li
     private final String slashHelp;
 
     public AddonCommand(String command) {
-        this(Objects.requireNonNull(AbstractAddon.instance().getCommand(command),
+        this(Objects.requireNonNull(AbstractAddon.addonInstance().getCommand(command),
                 "No such command '" + command + "'! Add it it to your plugin.yml!"));
     }
 
@@ -48,7 +48,7 @@ public final class AddonCommand extends ParentCommand implements TabExecutor, Li
         help = "help " + command.getName();
         slashHelp = "/" + help;
 
-        addSub(new InfoCommand(AbstractAddon.instance()));
+        addSub(new InfoCommand(AbstractAddon.addonInstance()));
         addSub(new AliasesCommand(command));
     }
 

@@ -7,7 +7,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import javax.annotation.Nonnull;
 
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.LivingEntity;
@@ -50,7 +51,7 @@ public final class Martian extends Alien<ZombieVillager> {
 
         // 1/64 chance
         if (ThreadLocalRandom.current().nextDouble() <= 0.015625) {
-            spawned.setCustomName(ChatColor.RED + "The Zerix");
+            spawned.customName(Component.text("The Zerix", NamedTextColor.RED));
             spawned.setCustomNameVisible(true);
         }
 

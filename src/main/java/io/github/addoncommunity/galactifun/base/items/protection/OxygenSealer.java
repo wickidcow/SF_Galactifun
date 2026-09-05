@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.base.items.protection;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -29,9 +31,8 @@ import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetComponen
 import io.github.thebusybiscuit.slimefun4.libraries.dough.blocks.BlockPosition;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
-import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 
@@ -55,22 +56,22 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
             }
 
             @Override
-            public void tick(Block b, SlimefunItem item, Config data) {
+            public void tick(Block b, SlimefunItem item, ASlimefunDataContainer data) {
                 allBlocks.add(new BlockPosition(b));
 
                 int req = 64;
-                if (getCharge(b.getLocation()) < req) {
-                    BlockStorage.addBlockInfo(b, PROTECTING, "false");
+                if (getChargeLong(b.getLocation(), data) < req) {
+                    SFStorage.setData(b, PROTECTING, "false");
                 } else {
-                    BlockStorage.addBlockInfo(b, PROTECTING, "true");
-                    removeCharge(b.getLocation(), req);
+                    SFStorage.setData(b, PROTECTING, "true");
+                    removeCharge(b.getLocation(), (long) req, data);
                 }
             }
 
             @Override
             public void uniqueTick() {
                 // to prevent memory leaks if something happens (block breaks aren't the only thing that can)
-                allBlocks.removeIf(pos -> !(BlockStorage.check(pos.toLocation()) instanceof OxygenSealer));
+                allBlocks.removeIf(pos -> !(SFStorage.item(pos.toLocation()) instanceof OxygenSealer));
 
                 // every 6 slimefun ticks (every 3 seconds)
                 if (counter < 6) {
@@ -142,7 +143,7 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
             return;
         }
 
-        BlockMenu menu = BlockStorage.getInventory(b);
+        BlockMenu menu = SFStorage.menu(b);
         if (!SlimefunUtils.isItemSimilar(menu.getItemInSlot(OXYGEN_SLOT), Gas.OXYGEN.item().clone(), false, false)) {
             updateHologram(b, "&cNo Oxygen");
             BSUtils.addBlockInfo(b, NO_OXYGEN, true);
@@ -156,7 +157,7 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
 
         int range = this.range;
         for (BlockFace face : Util.SURROUNDING_FACES) {
-            if (BlockStorage.check(b.getRelative(face), BaseItems.SUPER_FAN.getItemId())) {
+            if (SFStorage.isItem(b.getRelative(face), BaseItems.SUPER_FAN.getItemId())) {
                 range += range * 0.15;
             }
         }

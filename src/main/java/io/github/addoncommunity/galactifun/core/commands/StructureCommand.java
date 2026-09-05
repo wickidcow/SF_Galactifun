@@ -1,5 +1,7 @@
 package io.github.addoncommunity.galactifun.core.commands;
 
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,7 +13,6 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 
 import java.nio.charset.StandardCharsets;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
@@ -47,19 +48,19 @@ public final class StructureCommand extends SubCommand {
 
         if (args[0].equals("save")) {
             if (args.length != 2) {
-                p.sendMessage(ChatColor.RED + "Usage: /galactifun save <name>");
+                Messages.red(p, "Usage: /galactifun save <name>");
                 return;
             }
 
             Location pos1 = p.getPersistentDataContainer().get(this.pos1, PersistentType.LOCATION);
             if (pos1 == null) {
-                p.sendMessage(ChatColor.RED + "pos1 not set!");
+                Messages.red(p, "pos1 not set!");
                 return;
             }
 
             Location pos2 = p.getPersistentDataContainer().get(this.pos2, PersistentType.LOCATION);
             if (pos2 == null) {
-                p.sendMessage(ChatColor.RED + "pos2 not set!");
+                Messages.red(p, "pos2 not set!");
                 return;
             }
 
@@ -72,10 +73,10 @@ public final class StructureCommand extends SubCommand {
                 try {
                     Files.writeString(file.toPath(), struct.saveToString(), StandardCharsets.UTF_8);
                     this.savedStructures.put(args[1], struct);
-                    p.sendMessage(ChatColor.GREEN + "Saved as '" + args[1] + "'!");
+                    Messages.green(p, "Saved as '" + args[1] + "'!");
                 } catch (IOException e) {
                     e.printStackTrace();
-                    p.sendMessage(ChatColor.RED + "Error saving file! Check the console!");
+                    Messages.red(p, "Error saving file! Check the console!");
                 }
             }
             return;
@@ -83,25 +84,25 @@ public final class StructureCommand extends SubCommand {
 
         Block target = p.getTargetBlockExact(32);
         if (target == null || target.getType().isAir()) {
-            p.sendMessage(ChatColor.RED + "You must tar a block!");
+            Messages.red(p, "You must tar a block!");
             return;
         }
 
         if (args[0].equals("pos1")) {
             p.getPersistentDataContainer().set(this.pos1, PersistentType.LOCATION, target.getLocation());
-            p.sendMessage(ChatColor.GREEN + "Set pos1 to " + toString(target));
+            Messages.green(p, "Set pos1 to " + toString(target));
             return;
         }
 
         if (args[0].equals("pos2")) {
             p.getPersistentDataContainer().set(this.pos2, PersistentType.LOCATION, target.getLocation());
-            p.sendMessage(ChatColor.GREEN + "Set pos2 to " + toString(target));
+            Messages.green(p, "Set pos2 to " + toString(target));
             return;
         }
 
         if (args[0].equals("paste")) {
             if (args.length != 2) {
-                p.sendMessage(ChatColor.RED + "Usage: /galactifun paste <name>");
+                Messages.red(p, "Usage: /galactifun paste <name>");
                 return;
             }
 
@@ -110,13 +111,13 @@ public final class StructureCommand extends SubCommand {
             if (saved == null) {
                 saved = Structure.getByKey(args[1]);
                 if (saved == null) {
-                    p.sendMessage(ChatColor.RED + "Unknown structure '" + args[1] + "'!");
+                    Messages.red(p, "Unknown structure '" + args[1] + "'!");
                     return;
                 }
             }
 
             saved.paste(target, StructureRotation.fromFace(p.getFacing()));
-            p.sendMessage(ChatColor.GREEN + "Pasted!");
+            Messages.green(p, "Pasted!");
         }
     }
 

@@ -1,5 +1,9 @@
 package io.github.addoncommunity.galactifun.base.items;
 
+import io.github.addoncommunity.galactifun.util.SFStorage;
+
+import io.github.addoncommunity.galactifun.util.Messages;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -7,7 +11,6 @@ import java.util.Optional;
 
 import javax.annotation.Nonnull;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -36,7 +39,6 @@ import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.HeadTexture;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 
@@ -68,16 +70,16 @@ public final class LaunchPadCore extends TickingMenuBlock {
     protected void tick(@Nonnull Block block, @Nonnull BlockMenu menu) {
         Block b = block.getRelative(BlockFace.UP);
 
-        SlimefunItem sfItem = BlockStorage.check(b);
+        SlimefunItem sfItem = SFStorage.item(b);
         if (!(sfItem instanceof Rocket rocket)) return;
 
         Location l = b.getLocation();
         if (BSUtils.getStoredBoolean(l, "isLaunching")) return;
 
-        String string = Objects.requireNonNullElse(BlockStorage.getLocationInfo(l, "fuel"), "0");
+        String string = Objects.requireNonNullElse(SFStorage.getData(l, "fuel"), "0");
         int fuel = Integer.parseInt(string);
 
-        string = BlockStorage.getLocationInfo(l, "fuelType");
+        string = SFStorage.getData(l, "fuelType");
 
         if (fuel < rocket.fuelCapacity()) {
             ItemStack fuelItem = menu.getItemInSlot(FUEL_SLOT);
@@ -88,7 +90,7 @@ public final class LaunchPadCore extends TickingMenuBlock {
                     menu.consumeItem(FUEL_SLOT);
                     BSUtils.addBlockInfo(l.getBlock(), "fuel", ++fuel);
                     if (string == null) {
-                        BlockStorage.addBlockInfo(l, "fuelType", id);
+                        SFStorage.setData(l, "fuelType", id);
                     }
                 }
             }
@@ -126,7 +128,7 @@ public final class LaunchPadCore extends TickingMenuBlock {
 
     public static boolean canBreak(@Nonnull Player p, @Nonnull Block b) {
         if (BSUtils.getStoredBoolean(b.getRelative(BlockFace.UP).getLocation(), "isLaunching")) {
-            p.sendMessage(ChatColor.RED + "You cannot break the launchpad a rocket is launching on!");
+            Messages.red(p, "You cannot break the launchpad a rocket is launching on!");
             return false;
         }
         return true;
@@ -140,12 +142,12 @@ public final class LaunchPadCore extends TickingMenuBlock {
             menu.dropItems(l, 33);
 
             Block rocketBlock = e.getBlock().getRelative(BlockFace.UP);
-            SlimefunItem item = BlockStorage.check(rocketBlock);
+            SlimefunItem item = SFStorage.item(rocketBlock);
 
             if (item instanceof Rocket) {
                 World world = l.getWorld();
                 rocketBlock.setType(Material.AIR);
-                BlockStorage.clearBlockInfo(rocketBlock);
+                SFStorage.remove(rocketBlock);
                 world.dropItemNaturally(rocketBlock.getLocation(), item.getItem().clone());
             }
         } else {
@@ -189,17 +191,17 @@ public final class LaunchPadCore extends TickingMenuBlock {
                     e.cancel();
                 }
 
-                BlockStorage.getInventory(b).open(p);
+                SFStorage.menu(b).open(p);
             } else {
                 e.cancel();
-                p.sendMessage(ChatColor.RED + "Surround this block with 8 launch pad floors before attempting to use it");
+                Messages.red(p, "Surround this block with 8 launch pad floors before attempting to use it");
             }
         }
     }
 
     private static boolean isSurroundedByFloors(Block b) {
         for (BlockFace face : Util.SURROUNDING_FACES) {
-            if (!BlockStorage.check(b.getRelative(face), BaseItems.LAUNCH_PAD_FLOOR.getItemId())) {
+            if (!SFStorage.isItem(b.getRelative(face), BaseItems.LAUNCH_PAD_FLOOR.getItemId())) {
                 return false;
             }
         }
