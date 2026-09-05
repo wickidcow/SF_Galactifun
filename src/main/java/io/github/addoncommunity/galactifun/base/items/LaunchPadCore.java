@@ -19,6 +19,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 
+import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.api.items.Rocket;
 import io.github.addoncommunity.galactifun.base.BaseItems;
 import io.github.addoncommunity.galactifun.util.BSUtils;
@@ -32,7 +33,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.HeadTexture;
@@ -73,7 +73,15 @@ public final class LaunchPadCore extends TickingMenuBlock {
 
         Location location = rocketBlock.getLocation();
         String string = Objects.requireNonNullElse(BlockStorage.getLocationInfo(location, "fuel"), "0");
-        int fuel = Integer.parseInt(string);
+        int fuel;
+        try {
+            fuel = Math.max(0, Integer.parseInt(string));
+        } catch (NumberFormatException exception) {
+            fuel = 0;
+            BSUtils.addBlockInfo(rocketBlock, "fuel", 0);
+            Galactifun.log(java.util.logging.Level.WARNING,
+                    "Recovered invalid rocket fuel count at " + location, string);
+        }
         string = BlockStorage.getLocationInfo(location, "fuelType");
 
         if (fuel < rocket.fuelCapacity()) {
@@ -177,11 +185,23 @@ public final class LaunchPadCore extends TickingMenuBlock {
 
         int fuel = BSUtils.getStoredInt(rocketBlock.getLocation(), "fuel");
         String fuelType = BlockStorage.getLocationInfo(rocketBlock.getLocation(), "fuelType");
-        if (fuel <= 0 || fuelType == null) {
+        if (fuel <= 0 || fuelType == null || fuelType.isBlank()) {
             return;
         }
 
-        ItemStack fuelItem = StackUtils.itemByIdOrType(fuelType);
+        final ItemStack fuelItem;
+        try {
+            fuelItem = StackUtils.itemByIdOrType(fuelType);
+        } catch (RuntimeException exception) {
+            Galactifun.log(java.util.logging.Level.WARNING,
+                    "Could not recover stored rocket fuel at " + rocketBlock.getLocation(), exception.toString());
+            return;
+        }
+
+        if (fuelItem == null || fuelItem.getType().isAir()) {
+            return;
+        }
+
         int max = Math.max(1, fuelItem.getMaxStackSize());
         while (fuel > 0) {
             int amount = Math.min(max, fuel);
