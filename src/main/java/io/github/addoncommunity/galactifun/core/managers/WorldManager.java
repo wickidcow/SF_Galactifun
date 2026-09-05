@@ -8,14 +8,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -35,6 +35,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockGrowEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -46,12 +48,13 @@ import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.PortalCreateEvent;
+import org.bukkit.event.world.WorldLoadEvent;
+import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.MetadataValue;
 
-import com.destroystokyo.paper.event.player.PlayerTeleportEndGatewayEvent;
 import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.api.items.ExclusiveGEOResource;
 import io.github.addoncommunity.galactifun.api.items.spacesuit.SpaceSuitProfile;
@@ -61,6 +64,7 @@ import io.github.addoncommunity.galactifun.api.worlds.OrbitWorld;
 import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
 import io.github.addoncommunity.galactifun.base.BaseUniverse;
 import io.github.addoncommunity.galactifun.base.universe.earth.Earth;
+import io.github.addoncommunity.galactifun.core.managers.TravelManager.TravelType;
 import io.github.addoncommunity.galactifun.util.ChunkStorage;
 import io.github.mooy1.infinitylib.common.Events;
 import io.github.mooy1.infinitylib.common.Scheduler;
@@ -71,7 +75,6 @@ import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.items.ItemUtils;
-import io.github.thebusybiscuit.slimefun4.libraries.paperlib.PaperLib;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 
@@ -79,9 +82,11 @@ public final class WorldManager implements Listener {
 
     private static final String PLACED = "placed";
 
-        private final int maxAliensPerPlayer;
-    private final Map<World, PlanetaryWorld> spaceWorlds = new HashMap<>();
-    private final Map<World, AlienWorld> alienWorlds = new HashMap<>();
+    private final int maxAliensPerPlayer;
+    private final Map<UUID, PlanetaryWorld> spaceWorldsByUuid = new HashMap<>();
+    private final Map<String, PlanetaryWorld> spaceWorldsByName = new HashMap<>();
+    private final Map<UUID, AlienWorld> alienWorldsByUuid = new HashMap<>();
+    private final Map<String, AlienWorld> alienWorldsByName = new HashMap<>();
     private final YamlConfiguration config;
     private final YamlConfiguration defaultConfig;
 
@@ -90,45 +95,71 @@ public final class WorldManager implements Listener {
     private final Map<UUID, Long> oxygenDamage = new HashMap<>();
 
     public WorldManager(Galactifun galactifun) {
-        this.maxAliensPerPlayer = galactifun.getConfig().getInt("aliens.max-per-player", 4, 64);
+        this.maxAliensPerPlayer = galactifun.getConfig().getInt("aliens.max-per-player", 8);
 
         Events.registerListener(this);
-        Scheduler.repeat(100, () -> this.alienWorlds.values().forEach(AlienWorld::tickWorld));
-        Scheduler.repeat(20, this::tickOxygen);
 
-        File configFile = new File("plugins/Galactifun", "worlds.yml");
+        int worldTickInterval = Math.max(1,
+                galactifun.getConfig().getInt("performance.world-tick-interval",
+                        galactifun.getConfig().getInt("aliens.tick-interval", 100)));
+        int oxygenInterval = Math.max(1,
+                galactifun.getConfig().getInt("performance.oxygen-check-interval", 20));
+
+        Scheduler.repeat(worldTickInterval,
+                () -> this.alienWorldsByName.values().forEach(AlienWorld::tickWorld));
+        Scheduler.repeat(oxygenInterval, this::tickOxygen);
+        Scheduler.repeat(1200, Galactifun.travelManager()::clearExpired);
+
+        if (!galactifun.getDataFolder().exists() && !galactifun.getDataFolder().mkdirs()) {
+            Galactifun.log(Level.WARNING, "Could not create Galactifun data directory.");
+        }
+
+        File configFile = new File(galactifun.getDataFolder(), "worlds.yml");
         this.config = new YamlConfiguration();
         this.defaultConfig = new YamlConfiguration();
         this.config.setDefaults(this.defaultConfig);
 
-        // Load the config
         if (configFile.exists()) {
             try {
                 this.config.load(configFile);
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (Exception exception) {
+                Galactifun.log(Level.SEVERE, "Could not load worlds.yml", exception.toString());
             }
         }
 
-        // Save the config after startup
         Scheduler.run(() -> {
             try {
                 this.config.options().copyDefaults(true);
                 this.config.save(configFile);
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException exception) {
+                Galactifun.log(Level.SEVERE, "Could not save worlds.yml", exception.toString());
             }
         });
     }
 
-    public void register(PlanetaryWorld world) {
-        if (this.spaceWorlds.containsKey(world.world())) {
-            throw new IllegalArgumentException("Alien World " + world.id() + " is already registered!");
+    public void register(@Nonnull PlanetaryWorld planetaryWorld) {
+        World world = planetaryWorld.world();
+        if (world == null) {
+            throw new IllegalArgumentException("Cannot register a disabled planet " + planetaryWorld.id());
         }
-        this.spaceWorlds.put(world.world(), world);
-        if (world instanceof AlienWorld alienWorld) {
-            this.alienWorlds.put(world.world(), alienWorld);
+
+        String name = normalizeWorldName(world.getName());
+        PlanetaryWorld existing = this.spaceWorldsByName.get(name);
+        if (existing != null && existing != planetaryWorld) {
+            throw new IllegalArgumentException("World " + world.getName() + " is already registered to " + existing.id());
         }
+
+        this.spaceWorldsByName.put(name, planetaryWorld);
+        this.spaceWorldsByUuid.put(world.getUID(), planetaryWorld);
+
+        if (planetaryWorld instanceof AlienWorld alienWorld) {
+            this.alienWorldsByName.put(name, alienWorld);
+            this.alienWorldsByUuid.put(world.getUID(), alienWorld);
+        }
+    }
+
+    private static String normalizeWorldName(String name) {
+        return name.toLowerCase(Locale.ROOT);
     }
 
     @SuppressWarnings("unchecked")
@@ -137,25 +168,37 @@ public final class WorldManager implements Listener {
         this.defaultConfig.set(path, defaultValue);
         if (clazz == String.class) {
             return (T) this.config.getString(path);
-        } else {
-            return this.config.getObject(path, clazz);
         }
+        return this.config.getObject(path, clazz);
     }
 
     private void tickOxygen() {
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p.getGameMode() == GameMode.SURVIVAL) {
-                PlanetaryWorld world = spaceWorlds.get(p.getWorld());
-                if (world != null
-                        && world.atmosphere().requiresOxygenTank()
-                        && !Galactifun.protectionManager().isOxygenBlock(p.getLocation())
-                        && !SpaceSuitProfile.get(p).consumeOxygen(20)
-                        && !p.isDead()) {
-                    p.sendMessage(ChatColor.RED + "You have run out of oxygen!");
-                    double damage = oxygenDamage.merge(p.getUniqueId(), 2L, (a, b) -> a * b);
-                    p.setHealth(Math.max(p.getHealth() - damage, 0));
+        for (PlanetaryWorld world : this.spaceWorldsByName.values()) {
+            World bukkitWorld = world.world();
+            if (bukkitWorld == null || org.bukkit.Bukkit.getWorld(bukkitWorld.getUID()) == null) {
+                continue;
+            }
+
+            if (!world.atmosphere().requiresOxygenTank()) {
+                for (Player player : bukkitWorld.getPlayers()) {
+                    oxygenDamage.remove(player.getUniqueId());
+                }
+                continue;
+            }
+
+            for (Player player : bukkitWorld.getPlayers()) {
+                if (player.getGameMode() != GameMode.SURVIVAL || player.isDead()) {
+                    oxygenDamage.remove(player.getUniqueId());
+                    continue;
+                }
+
+                if (!Galactifun.protectionManager().isOxygenBlock(player.getLocation())
+                        && !SpaceSuitProfile.get(player).consumeOxygen(20)) {
+                    player.sendMessage(ChatColor.RED + "You have run out of oxygen!");
+                    double damage = oxygenDamage.merge(player.getUniqueId(), 2L, (a, b) -> a * b);
+                    player.setHealth(Math.max(player.getHealth() - damage, 0));
                 } else {
-                    oxygenDamage.remove(p.getUniqueId());
+                    oxygenDamage.remove(player.getUniqueId());
                 }
             }
         }
@@ -163,315 +206,451 @@ public final class WorldManager implements Listener {
 
     @Nullable
     public PlanetaryWorld getWorld(@Nonnull World world) {
-        return this.spaceWorlds.get(world);
+        PlanetaryWorld planetaryWorld = this.spaceWorldsByUuid.get(world.getUID());
+        if (planetaryWorld != null) {
+            return planetaryWorld;
+        }
+
+        planetaryWorld = this.spaceWorldsByName.get(normalizeWorldName(world.getName()));
+        if (planetaryWorld != null) {
+            planetaryWorld.rebindWorld(world);
+            this.spaceWorldsByUuid.put(world.getUID(), planetaryWorld);
+            if (planetaryWorld instanceof AlienWorld alienWorld) {
+                this.alienWorldsByUuid.put(world.getUID(), alienWorld);
+            }
+        }
+        return planetaryWorld;
     }
 
     @Nullable
     public AlienWorld getAlienWorld(@Nonnull World world) {
-        return this.alienWorlds.get(world);
+        AlienWorld alienWorld = this.alienWorldsByUuid.get(world.getUID());
+        if (alienWorld != null) {
+            return alienWorld;
+        }
+
+        PlanetaryWorld planetaryWorld = getWorld(world);
+        return planetaryWorld instanceof AlienWorld found ? found : null;
     }
 
     @Nonnull
     public Collection<PlanetaryWorld> spaceWorlds() {
-        return Collections.unmodifiableCollection(this.spaceWorlds.values());
+        return Collections.unmodifiableCollection(this.spaceWorldsByName.values());
     }
-    
+
     @Nonnull
     public Collection<AlienWorld> alienWorlds() {
-        return Collections.unmodifiableCollection(this.alienWorlds.values());
+        return Collections.unmodifiableCollection(this.alienWorldsByName.values());
+    }
+
+    @EventHandler
+    private void onWorldLoad(WorldLoadEvent event) {
+        getWorld(event.getWorld());
+    }
+
+    @EventHandler
+    private void onWorldUnload(WorldUnloadEvent event) {
+        this.spaceWorldsByUuid.remove(event.getWorld().getUID());
+        this.alienWorldsByUuid.remove(event.getWorld().getUID());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void onPortalCreate(PortalCreateEvent e) {
-        if (!Galactifun.instance().getConfig().getBoolean("worlds.allow-nether-portals") && getAlienWorld(e.getWorld()) != null) {
-            e.setCancelled(true);
+    public void onPortalCreate(PortalCreateEvent event) {
+        if (!Galactifun.instance().getConfig().getBoolean("worlds.allow-nether-portals")
+                && getAlienWorld(event.getWorld()) != null) {
+            event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void portal(PlayerPortalEvent e){
-        if (!Galactifun.instance().getConfig().getBoolean("worlds.allow-nether-portals") && getAlienWorld(e.getFrom().getWorld()) != null){
-            e.setCancelled(true);
+    public void portal(PlayerPortalEvent event) {
+        if (!Galactifun.instance().getConfig().getBoolean("worlds.allow-nether-portals")
+                && getAlienWorld(event.getFrom().getWorld()) != null) {
+            event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onPlanetChange(@Nonnull PlayerChangedWorldEvent e) {
-        AlienWorld object = getAlienWorld(e.getFrom());
-        if (object != null) {
-            object.gravity().removeGravity(e.getPlayer());
+    public void onPlanetChange(@Nonnull PlayerChangedWorldEvent event) {
+        AlienWorld previous = getAlienWorld(event.getFrom());
+        if (previous != null) {
+            previous.gravity().removeGravity(event.getPlayer());
         }
-        object = getAlienWorld(e.getPlayer().getWorld());
-        if (object != null) {
-            object.applyEffects(e.getPlayer());
+
+        AlienWorld current = getAlienWorld(event.getPlayer().getWorld());
+        if (current != null) {
+            current.applyEffects(event.getPlayer());
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    private void onPlanetJoin(@Nonnull PlayerJoinEvent e) {
-        AlienWorld object = getAlienWorld(e.getPlayer().getWorld());
-        if (object != null) {
-            object.applyEffects(e.getPlayer());
+    private void onPlanetJoin(@Nonnull PlayerJoinEvent event) {
+        AlienWorld world = getAlienWorld(event.getPlayer().getWorld());
+        if (world != null) {
+            world.applyEffects(event.getPlayer());
         }
     }
 
+    @EventHandler
+    private void onPlayerQuit(PlayerQuitEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        this.oxygenDamage.remove(uuid);
+        this.lastDeaths.remove(uuid);
+        this.respawnTimes.remove(uuid);
+        Galactifun.travelManager().clear(event.getPlayer());
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    private void onPlayerChangeGameMode(@Nonnull PlayerGameModeChangeEvent e) {
-        AlienWorld object = getAlienWorld(e.getPlayer().getWorld());
-        if (object != null && !(e.getNewGameMode() == GameMode.CREATIVE || e.getNewGameMode() == GameMode.SPECTATOR)) {
-            object.applyEffects(e.getPlayer());
+    private void onPlayerChangeGameMode(@Nonnull PlayerGameModeChangeEvent event) {
+        AlienWorld world = getAlienWorld(event.getPlayer().getWorld());
+        if (world != null
+                && event.getNewGameMode() != GameMode.CREATIVE
+                && event.getNewGameMode() != GameMode.SPECTATOR) {
+            world.applyEffects(event.getPlayer());
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onPlayerTeleport(@Nonnull PlayerTeleportEvent e) {
-        if (e instanceof PlayerTeleportEndGatewayEvent) return;
-        if (!e.getPlayer().hasPermission("galactifun.admin")) {
-            if (e.getTo().getWorld() != null && e.getFrom().getWorld() != e.getTo().getWorld()) {
-                PlanetaryWorld fromWorld = getWorld(e.getFrom().getWorld());
-                PlanetaryWorld toWorld = getWorld(e.getTo().getWorld());
-                if (
-                        (fromWorld != null || toWorld != null)
-                        && !BaseUniverse.EARTH.equals(toWorld)
-                        && !BaseUniverse.EARTH.equals(fromWorld)
-                        || (BaseUniverse.EARTH.equals(fromWorld) && toWorld != null)
-                ) {
-                    boolean canTp = false;
-                    for (MetadataValue value : e.getPlayer().getMetadata("CanTpAlienWorld")) {
-                        canTp |= value.asBoolean();
-                    }
-                    if (canTp) {
-                        e.getPlayer().removeMetadata("CanTpAlienWorld", Galactifun.instance());
-                    } else {
-                        e.setCancelled(true);
-                    }
-                }
+    private void onPlayerTeleport(@Nonnull PlayerTeleportEvent event) {
+        Location to = event.getTo();
+        if (to == null || to.getWorld() == null || event.getFrom().getWorld() == to.getWorld()) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        if (player.hasPermission("galactifun.admin")) {
+            return;
+        }
+
+        PlanetaryWorld fromWorld = getWorld(event.getFrom().getWorld());
+        PlanetaryWorld toWorld = getWorld(to.getWorld());
+        if (!requiresTravelAuthorization(fromWorld, toWorld)) {
+            return;
+        }
+
+        if (Galactifun.travelManager().consume(player, to.getWorld())) {
+            return;
+        }
+
+        if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN
+                && Galactifun.integrations().isMultiverseCore()) {
+            boolean enteringPlanet = toWorld != null && toWorld != BaseUniverse.EARTH;
+            boolean exitingPlanet = fromWorld != null && fromWorld != BaseUniverse.EARTH
+                    && (toWorld == null || toWorld == BaseUniverse.EARTH);
+
+            if ((enteringPlanet && Galactifun.integrations().allowMultiversePlanetEntry())
+                    || (exitingPlanet && Galactifun.integrations().allowMultiversePlanetExit())) {
+                return;
             }
         }
+
+        event.setCancelled(true);
+    }
+
+    private static boolean requiresTravelAuthorization(@Nullable PlanetaryWorld fromWorld,
+                                                       @Nullable PlanetaryWorld toWorld) {
+        if (fromWorld == null && toWorld == null) {
+            return false;
+        }
+        if (toWorld == BaseUniverse.EARTH) {
+            return false;
+        }
+        if (fromWorld == BaseUniverse.EARTH) {
+            return toWorld != null && toWorld != BaseUniverse.EARTH;
+        }
+        return true;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onCreatureSpawn(@Nonnull CreatureSpawnEvent e) {
-        if (e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.NATURAL) {
-            AlienWorld world = getAlienWorld(e.getEntity().getWorld());
+    private void onCreatureSpawn(@Nonnull CreatureSpawnEvent event) {
+        if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.NATURAL) {
+            AlienWorld world = getAlienWorld(event.getEntity().getWorld());
             if (world != null && !world.canSpawnVanillaMobs()) {
-                e.setCancelled(true);
+                event.setCancelled(true);
             }
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onWaypointCreate(@Nonnull WaypointCreateEvent e) {
-        if (this.alienWorlds.containsKey(e.getPlayer().getWorld())) {
-            e.setCancelled(true);
+    private void onWaypointCreate(@Nonnull WaypointCreateEvent event) {
+        if (getAlienWorld(event.getPlayer().getWorld()) != null) {
+            event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    private void onCropGrow(@Nonnull BlockGrowEvent e) {
-        Block block = e.getBlock();
+    private void onCropGrow(@Nonnull BlockGrowEvent event) {
+        Block block = event.getBlock();
         AlienWorld world = getAlienWorld(block.getWorld());
-        if (world != null) {
-            ProtectionManager manager = Galactifun.protectionManager();
-            Location l = block.getLocation();
-            if (manager.getEffectAt(l, AtmosphericEffect.COLD) > 1) {
-                Scheduler.run(() -> block.setType(Material.ICE));
-            } else if (manager.getEffectAt(l, AtmosphericEffect.HEAT) > 1) {
-                Scheduler.run(block::breakNaturally);
-            } else {
-                int attempts = world.atmosphere().growthAttempts();
-                if (attempts != 0 && SlimefunTag.CROPS.isTagged(block.getType())) {
-                    BlockData data = block.getBlockData();
-                    if (data instanceof Ageable ageable) {
-                        ageable.setAge(ageable.getAge() + attempts);
-                        block.setBlockData(ageable);
-                    }
+        if (world == null) {
+            return;
+        }
+
+        ProtectionManager manager = Galactifun.protectionManager();
+        Location location = block.getLocation();
+        if (manager.getEffectAt(location, AtmosphericEffect.COLD) > 1) {
+            Scheduler.run(() -> block.setType(Material.ICE));
+        } else if (manager.getEffectAt(location, AtmosphericEffect.HEAT) > 1) {
+            Scheduler.run(block::breakNaturally);
+        } else {
+            int attempts = world.atmosphere().growthAttempts();
+            if (attempts != 0 && SlimefunTag.CROPS.isTagged(block.getType())) {
+                BlockData data = block.getBlockData();
+                if (data instanceof Ageable ageable) {
+                    ageable.setAge(Math.max(0, Math.min(ageable.getMaximumAge(), ageable.getAge() + attempts)));
+                    block.setBlockData(ageable);
                 }
             }
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onBreak(BlockBreakEvent e) {
-        Block b = e.getBlock();
-        World w = b.getWorld();
-        AlienWorld world = this.alienWorlds.get(w);
-        if (world != null) {
-            SlimefunItemStack item = world.getMappedItem(b);
-            if (item != null && !removePlacedBlock(b)) {
-                e.setDropItems(false);
-                List<ItemStack> drops = new ArrayList<>();
-                ItemStack itemStack = item.item().clone();
-                drops.add(itemStack);
-                item.getItem().callItemHandler(BlockBreakHandler.class, h -> h.onPlayerBreak(e, itemStack, drops));
-                for (ItemStack drop : drops) {
-                    w.dropItemNaturally(b.getLocation().add(0.5, 0, 0.5), drop);
-                }
+    private void onPistonExtend(BlockPistonExtendEvent event) {
+        protectMappedBlocksFromPistons(event.getBlocks(), event);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    private void onPistonRetract(BlockPistonRetractEvent event) {
+        protectMappedBlocksFromPistons(event.getBlocks(), event);
+    }
+
+    private void protectMappedBlocksFromPistons(List<Block> blocks, org.bukkit.event.Cancellable event) {
+        if (!Galactifun.instance().getConfig().getBoolean("security.prevent-piston-mapped-block-moves", true)) {
+            return;
+        }
+
+        for (Block block : blocks) {
+            AlienWorld world = getAlienWorld(block.getWorld());
+            if (world != null && world.getMappedItem(block) != null) {
+                // Moving a mapped resource can desynchronise its placed/generated provenance and was
+                // historically a duplication vector. Cancel the entire piston action instead.
+                event.setCancelled(true);
+                return;
             }
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onBlockExplode(BlockExplodeEvent e) {
-        handleExplosion(e.blockList().iterator());
+    private void onBreak(BlockBreakEvent event) {
+        Block block = event.getBlock();
+        World bukkitWorld = block.getWorld();
+        AlienWorld world = getAlienWorld(bukkitWorld);
+        if (world == null) {
+            return;
+        }
+
+        SlimefunItemStack item = world.getMappedItem(block);
+        if (item != null && !removePlacedBlock(block)) {
+            event.setDropItems(false);
+            List<ItemStack> drops = new ArrayList<>();
+            ItemStack itemStack = item.item().clone();
+            drops.add(itemStack);
+            item.getItem().callItemHandler(BlockBreakHandler.class,
+                    handler -> handler.onPlayerBreak(event, itemStack, drops));
+            for (ItemStack drop : drops) {
+                bukkitWorld.dropItemNaturally(block.getLocation().add(0.5, 0, 0.5), drop);
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onEntityExplode(EntityExplodeEvent e) {
-        handleExplosion(e.blockList().iterator());
+    private void onBlockExplode(BlockExplodeEvent event) {
+        handleExplosion(event.blockList().iterator());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onExplosivePickUse(ExplosiveToolBreakBlocksEvent e) {
-        handleExplosion(e.getAdditionalBlocks().iterator());
+    private void onEntityExplode(EntityExplodeEvent event) {
+        handleExplosion(event.blockList().iterator());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    private void onExplosivePickUse(ExplosiveToolBreakBlocksEvent event) {
+        handleExplosion(event.getAdditionalBlocks().iterator());
     }
 
     private void handleExplosion(Iterator<Block> blocks) {
         while (blocks.hasNext()) {
-            Block b = blocks.next();
-            World w = b.getWorld();
-            AlienWorld world = this.getAlienWorld(w);
+            Block block = blocks.next();
+            World bukkitWorld = block.getWorld();
+            AlienWorld world = getAlienWorld(bukkitWorld);
             if (world != null) {
-                SlimefunItemStack item = world.getMappedItem(b);
-                if (item != null && !removePlacedBlock(b)) {
+                SlimefunItemStack item = world.getMappedItem(block);
+                if (item != null && !removePlacedBlock(block)) {
                     blocks.remove();
-                    w.dropItemNaturally(b.getLocation().add(0.5, 0, 0.5), item.item().clone());
-                    Scheduler.run(() -> b.setType(Material.AIR));
+                    bukkitWorld.dropItemNaturally(block.getLocation().add(0.5, 0, 0.5), item.item().clone());
+                    Scheduler.run(() -> block.setType(Material.AIR));
                 }
             }
         }
     }
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
-    private void onSleep(PlayerInteractEvent e) {
-        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        Player p = e.getPlayer();
-        PlanetaryWorld world = this.getWorld(p.getWorld());
-        if (world == null || world.atmosphere().environment() == World.Environment.NORMAL) return;
-        Block b = e.getClickedBlock();
-        if (b != null && Tag.BEDS.isTagged(b.getType())) {
-            e.setCancelled(true);
-            p.setBedSpawnLocation(p.getLocation(), true);
-            p.sendMessage("Respawn point set");
+    private void onSleep(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        PlanetaryWorld world = getWorld(player.getWorld());
+        if (world == null || world.atmosphere().environment() == World.Environment.NORMAL) {
+            return;
+        }
+
+        Block block = event.getClickedBlock();
+        if (block != null && Tag.BEDS.isTagged(block.getType())) {
+            event.setCancelled(true);
+            player.setBedSpawnLocation(player.getLocation(), true);
+            player.sendMessage("Respawn point set");
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    private void onPlace(BlockPlaceEvent e) {
-        Block b = e.getBlock();
-        AlienWorld world = this.getAlienWorld(b.getWorld());
-        if (world != null && world.getMappedItem(b) != null) {
-            addPlacedBlock(b);
+    private void onPlace(BlockPlaceEvent event) {
+        Block block = event.getBlock();
+        AlienWorld world = getAlienWorld(block.getWorld());
+        if (world != null && world.getMappedItem(block) != null) {
+            addPlacedBlock(block);
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    private void onRespawnLoop(PlayerDeathEvent e) {
-        Player p = e.getEntity();
-        if (this.getWorld(p.getWorld()) != null) {
-            Long lastBoxed = this.lastDeaths.get(p.getUniqueId());
-            if (lastBoxed != null) {
-                long timeSince = System.currentTimeMillis() - lastBoxed;
-                if (timeSince < (60 * 1000)) {
-                    int times = this.respawnTimes.merge(p.getUniqueId(), 1, Integer::sum);
-                    if (times > 3) {
-                        p.sendMessage(ChatColor.YELLOW + """
-                                A possible respawn loop has been detected!
-                                Do you wish to go back to Earth? (yes/no)"""
-                        );
-                        ChatUtils.awaitInput(p, s -> {
-                            if (s.equalsIgnoreCase("yes")) {
-                                PaperLib.teleportAsync(p, BaseUniverse.EARTH.world().getSpawnLocation());
-                                WorldManager.this.respawnTimes.remove(p.getUniqueId());
-                            }
-                        });
+    private void onRespawnLoop(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        if (getWorld(player.getWorld()) == null) {
+            return;
+        }
+
+        Long lastDeath = this.lastDeaths.get(player.getUniqueId());
+        if (lastDeath != null && System.currentTimeMillis() - lastDeath < 60_000L) {
+            int times = this.respawnTimes.merge(player.getUniqueId(), 1, Integer::sum);
+            if (times > 3) {
+                player.sendMessage(ChatColor.YELLOW + """
+                        A possible respawn loop has been detected!
+                        Do you wish to go back to Earth? (yes/no)""");
+                ChatUtils.awaitInput(player, input -> {
+                    if (input.equalsIgnoreCase("yes") && BaseUniverse.EARTH.world() != null) {
+                        Galactifun.travelManager().authorize(player, BaseUniverse.EARTH.world(), TravelType.RESPAWN);
+                        player.teleportAsync(BaseUniverse.EARTH.world().getSpawnLocation());
+                        this.respawnTimes.remove(player.getUniqueId());
                     }
-                }
+                });
             }
-
-            this.lastDeaths.put(p.getUniqueId(), System.currentTimeMillis());
         }
+
+        this.lastDeaths.put(player.getUniqueId(), System.currentTimeMillis());
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    private void onPlayerPlaceWater(PlayerBucketEmptyEvent e) {
-        if (e.getBucket() != Material.WATER_BUCKET) return;
-        Player p = e.getPlayer();
-        PlanetaryWorld world = this.getWorld(p.getWorld());
-        if (world != null && world != BaseUniverse.EARTH) {
-            e.setCancelled(true);
-            if (p.getGameMode() != GameMode.CREATIVE) {
-                ItemStack item = p.getInventory().getItem(e.getHand());
-                if (item != null) {
-                    ItemUtils.consumeItem(item, true);
-                }
+    private void onPlayerPlaceWater(PlayerBucketEmptyEvent event) {
+        if (event.getBucket() != Material.WATER_BUCKET) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        PlanetaryWorld world = getWorld(player.getWorld());
+        if (world == null || world == BaseUniverse.EARTH) {
+            return;
+        }
+
+        event.setCancelled(true);
+        if (player.getGameMode() != GameMode.CREATIVE) {
+            ItemStack item = player.getInventory().getItem(event.getHand());
+            if (item != null) {
+                ItemUtils.consumeItem(item, true);
             }
-            ProtectionManager manager = Galactifun.protectionManager();
-            Block clicked = e.getBlockClicked();
-            Block toBePlaced = clicked.getRelative(e.getBlockFace());
-            Location l = toBePlaced.getLocation();
-            if (manager.getEffectAt(l, AtmosphericEffect.COLD) > 1) {
-                if (toBePlaced.isEmpty()) {
-                    toBePlaced.setType(Material.ICE);
-                }
-            } else if (manager.getEffectAt(l, AtmosphericEffect.HEAT) > 1) {
-                p.getWorld().spawnParticle(Particle.SMOKE, l, 5);
-            } else {
-                e.setCancelled(false);
+        }
+
+        ProtectionManager manager = Galactifun.protectionManager();
+        Block clicked = event.getBlockClicked();
+        Block toBePlaced = clicked.getRelative(event.getBlockFace());
+        Location location = toBePlaced.getLocation();
+        if (manager.getEffectAt(location, AtmosphericEffect.COLD) > 1) {
+            if (toBePlaced.isEmpty()) {
+                toBePlaced.setType(Material.ICE);
             }
+        } else if (manager.getEffectAt(location, AtmosphericEffect.HEAT) > 1) {
+            player.getWorld().spawnParticle(Particle.SMOKE, location, 5);
+        } else {
+            event.setCancelled(false);
         }
     }
 
     @EventHandler
-    private void onGEOResourceGenerate(GEOResourceGenerationEvent e) {
-        PlanetaryWorld world = this.getWorld(e.getWorld());
-        if (world == null) return;
+    private void onGEOResourceGenerate(GEOResourceGenerationEvent event) {
+        PlanetaryWorld world = getWorld(event.getWorld());
+        if (world == null) {
+            return;
+        }
 
-        if (e.getResource() instanceof ExclusiveGEOResource exclusiveResource) {
-            if (exclusiveResource.getWorlds().contains(world)) return;
+        if (event.getResource() instanceof ExclusiveGEOResource exclusiveResource) {
+            if (exclusiveResource.getWorlds().contains(world)) {
+                return;
+            }
         } else {
-            if (world instanceof Earth) return;
+            if (world instanceof Earth) {
+                return;
+            }
 
             for (GEOResource resource : world.resources()) {
-                if (resource.equals(e.getResource())) return;
+                if (resource.equals(event.getResource())) {
+                    return;
+                }
             }
         }
 
-        e.setValue(0);
+        event.setValue(0);
     }
 
     @EventHandler(ignoreCancelled = true)
-    private void onPlayerFallInOrbit(EntityDamageEvent e) {
-        if (e.getCause() != EntityDamageEvent.DamageCause.VOID) return;
-        PlanetaryWorld world = this.getWorld(e.getEntity().getWorld());
-
-        if (world instanceof OrbitWorld orbitWorld && orbitWorld.getPlanet() instanceof PlanetaryWorld planet) {
-            e.setCancelled(true);
-            Location l = e.getEntity().getLocation();
-            e.getEntity().teleport(new Location(
-                    planet.world(),
-                    l.getX(),
-                    planet.world().getMaxHeight(),
-                    l.getZ()
-            ));
+    private void onPlayerFallInOrbit(EntityDamageEvent event) {
+        if (event.getCause() != EntityDamageEvent.DamageCause.VOID) {
+            return;
         }
+
+        PlanetaryWorld world = getWorld(event.getEntity().getWorld());
+        if (!(world instanceof OrbitWorld orbitWorld)
+                || !(orbitWorld.getPlanet() instanceof PlanetaryWorld planet)
+                || planet.world() == null) {
+            return;
+        }
+
+        event.setCancelled(true);
+        Location current = event.getEntity().getLocation();
+        Location destination = new Location(
+                planet.world(),
+                current.getX(),
+                planet.world().getMaxHeight(),
+                current.getZ()
+        );
+
+        if (event.getEntity() instanceof Player player) {
+            Galactifun.travelManager().authorize(player, planet.world(), TravelType.RESPAWN);
+        }
+        event.getEntity().teleportAsync(destination);
     }
 
-    public void addPlacedBlock(Block b) {
-        ChunkStorage.tag(b, PLACED);
+    public void addPlacedBlock(Block block) {
+        ChunkStorage.tag(block, PLACED);
+    }
+
+    public boolean isPlacedBlock(Block block) {
+        return ChunkStorage.isTagged(block, PLACED);
     }
 
     /**
-     * Removes a non-world-mapped block from the placed blocks list
+     * Removes a non-world-mapped block from the placed-block list.
      *
-     * @return true if the block was a placed block, false if it was not
+     * @return true if the block was player placed, false if it was generated by the planet
      */
-    public boolean removePlacedBlock(Block b) {
-        return ChunkStorage.untag(b, PLACED);
+    public boolean removePlacedBlock(Block block) {
+        return ChunkStorage.untag(block, PLACED);
     }
 
+    public int maxAliensPerPlayer() {
+        return this.maxAliensPerPlayer;
+    }
 
-    public int maxAliensPerPlayer() { return this.maxAliensPerPlayer; }
-    public int getMaxAliensPerPlayer() { return this.maxAliensPerPlayer; }
-
+    public int getMaxAliensPerPlayer() {
+        return this.maxAliensPerPlayer;
+    }
 }
