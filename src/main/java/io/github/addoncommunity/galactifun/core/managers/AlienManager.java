@@ -4,17 +4,17 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
+import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -32,6 +32,7 @@ import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
+import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
 import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.api.aliens.Alien;
@@ -44,32 +45,34 @@ public final class AlienManager implements Listener {
 
     private final NamespacedKey key;
     private final NamespacedKey bossKey;
-    private final Map<String, Alien<?>> aliens = new HashMap<>();
-    private final Set<UUID> alienIds = new HashSet<>();
+    private final Map<String, Alien<?>> aliens = new ConcurrentHashMap<>();
+    private final Set<UUID> alienIds = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, UUID> alienWorlds = new ConcurrentHashMap<>();
     private final YamlConfiguration config;
+    private final File configFile;
 
     public AlienManager(Galactifun galactifun) {
         Events.registerListener(this);
         Scheduler.repeat(galactifun.getConfig().getInt("aliens.tick-interval", 1, 20), this::tick);
 
-        File configFile = new File("plugins/Galactifun", "uuids.yml");
+        this.configFile = new File(galactifun.getDataFolder(), "uuids.yml");
         this.config = new YamlConfiguration();
 
-        // Load the uuids
-        if (configFile.exists()) {
+        if (this.configFile.exists()) {
             try {
-                this.config.load(configFile);
+                this.config.load(this.configFile);
             } catch (Exception e) {
-                e.printStackTrace();
+                Galactifun.log(java.util.logging.Level.WARNING,
+                        "Could not load alien UUID data", e.toString());
             }
         }
 
-        // Save the config after startup
         Scheduler.run(() -> {
             try {
-                this.config.save(configFile);
+                this.config.save(this.configFile);
             } catch (IOException e) {
-                e.printStackTrace();
+                Galactifun.log(java.util.logging.Level.WARNING,
+                        "Could not save alien UUID data", e.toString());
             }
         });
 
@@ -79,10 +82,9 @@ public final class AlienManager implements Listener {
     }
 
     public void register(Alien<?> alien) {
-        if (this.aliens.containsKey(alien.id())) {
+        if (this.aliens.putIfAbsent(alien.id(), alien) != null) {
             throw new IllegalArgumentException("Alien " + alien.id() + " has already been registered!");
         }
-        this.aliens.put(alien.id(), alien);
     }
 
     @Nullable
@@ -106,11 +108,40 @@ public final class AlienManager implements Listener {
         return Collections.unmodifiableSet(this.alienIds);
     }
 
+    /**
+     * Tracks a loaded alien and its current world without requiring a later world-wide entity scan.
+     */
+    public void addAlien(@Nonnull Entity entity) {
+        if (getAlien(entity) == null) {
+            return;
+        }
+        UUID uuid = entity.getUniqueId();
+        this.alienIds.add(uuid);
+        this.alienWorlds.put(uuid, entity.getWorld().getUID());
+    }
+
+    /**
+     * Compatibility overload for older call sites.
+     */
     public void addAlien(@Nonnull UUID uuid) {
         Entity entity = Bukkit.getEntity(uuid);
-        if (entity != null && getAlien(entity) != null) {
-            this.alienIds.add(uuid);
+        if (entity != null) {
+            addAlien(entity);
         }
+    }
+
+    /**
+     * Returns the number of currently loaded Galactifun aliens tracked in a world.
+     */
+    public int countInWorld(@Nonnull World world) {
+        UUID worldId = world.getUID();
+        int count = 0;
+        for (UUID trackedWorld : this.alienWorlds.values()) {
+            if (worldId.equals(trackedWorld)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private void tick() {
@@ -123,6 +154,7 @@ public final class AlienManager implements Listener {
             if (entity instanceof LivingEntity livingEntity) {
                 Alien<?> alien = getAlien(livingEntity);
                 if (alien != null) {
+                    this.alienWorlds.put(uuid, livingEntity.getWorld().getUID());
                     alien.onEntityTick(livingEntity);
                 }
             }
@@ -200,9 +232,18 @@ public final class AlienManager implements Listener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.MONITOR)
+    private void onAlienAdd(@Nonnull EntityAddToWorldEvent e) {
+        if (getAlien(e.getEntity()) != null) {
+            addAlien(e.getEntity());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
     private void onAlienRemove(@Nonnull EntityRemoveFromWorldEvent e) {
-        this.alienIds.remove(e.getEntity().getUniqueId());
+        UUID uuid = e.getEntity().getUniqueId();
+        this.alienIds.remove(uuid);
+        this.alienWorlds.remove(uuid);
     }
 
     public void onDisable() {
@@ -213,9 +254,10 @@ public final class AlienManager implements Listener {
         });
         this.config.set("uuids", this.alienIds.stream().map(UUID::toString).toList());
         try {
-            this.config.save(new File("plugins/Galactifun", "uuids.yml"));
+            this.config.save(this.configFile);
         } catch (IOException e) {
-            e.printStackTrace();
+            Galactifun.log(java.util.logging.Level.WARNING,
+                    "Could not save alien UUID data", e.toString());
         }
     }
 
