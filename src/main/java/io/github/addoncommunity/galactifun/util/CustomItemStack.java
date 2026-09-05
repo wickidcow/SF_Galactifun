@@ -13,42 +13,47 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 
 /**
- * CustomItemStack extending Bukkit's {@link ItemStack} directly.
- * Ensures binary and runtime compatibility across Paper 1.21.4 and Slimefun 4.
+ * Small Bukkit {@link ItemStack} helper used by Galactifun menus and recipes.
+ *
+ * <p>Paper 26.x delegates Bukkit ItemStack calls through an internal CraftItemStack. Using Bukkit's
+ * ItemStack(ItemStack) copy constructor with a SlimefunItemStack is unsafe because Slimefun's clone
+ * remains a SlimefunItemStack, which can become the delegate and later fail CraftItemStack casts.
+ * These constructors deliberately rebuild the stack from material/amount and copy metadata instead.
  */
 public class CustomItemStack extends ItemStack {
 
     public CustomItemStack(@Nonnull ItemStack item) {
-        super(item);
+        super(item.getType(), item.getAmount());
+        copyMeta(item);
     }
 
     public CustomItemStack(@Nonnull ItemStack item, @Nullable String name, @Nullable String... lore) {
-        super(item);
+        this(item);
         applyMeta(name, lore != null ? Arrays.asList(lore) : null);
     }
 
     public CustomItemStack(@Nonnull ItemStack item, @Nullable String name, @Nullable List<String> lore) {
-        super(item);
+        this(item);
         applyMeta(name, lore);
     }
 
     public CustomItemStack(@Nonnull ItemStack item, int amount) {
-        super(item);
+        this(item);
         setAmount(amount);
     }
 
     public CustomItemStack(@Nonnull SlimefunItemStack item, int amount) {
-        super(item.clone());
+        this((ItemStack) item);
         setAmount(amount);
     }
 
     public CustomItemStack(@Nonnull SlimefunItemStack item, @Nullable String name, @Nullable String... lore) {
-        super(item.clone());
+        this((ItemStack) item);
         applyMeta(name, lore != null ? Arrays.asList(lore) : null);
     }
 
     public CustomItemStack(@Nonnull SlimefunItemStack item, @Nullable String name, @Nullable List<String> lore) {
-        super(item.clone());
+        this((ItemStack) item);
         applyMeta(name, lore);
     }
 
@@ -67,8 +72,14 @@ public class CustomItemStack extends ItemStack {
     }
 
     public CustomItemStack(@Nonnull String headTexture, @Nullable String name, @Nullable String... lore) {
-        super(SlimefunUtils.getCustomHead(headTexture));
+        this(SlimefunUtils.getCustomHead(headTexture));
         applyMeta(name, lore != null ? Arrays.asList(lore) : null);
+    }
+
+    private void copyMeta(@Nonnull ItemStack source) {
+        if (source.hasItemMeta()) {
+            setItemMeta(source.getItemMeta());
+        }
     }
 
     private void applyMeta(@Nullable String name, @Nullable List<String> lore) {
