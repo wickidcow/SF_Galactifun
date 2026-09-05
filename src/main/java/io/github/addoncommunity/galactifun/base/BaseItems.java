@@ -714,15 +714,15 @@ public final class BaseItems {
                 BaseMats.ADVANCED_PROCESSING_UNIT, BaseMats.ULTRA_DUTY_SHEET, BaseMats.ADVANCED_PROCESSING_UNIT
         ));
 
-        chemicalReactor.addRecipe(new ItemStack(Material.WATER_BUCKET), Gas.WATER.item().item(), new ItemStack(Material.BUCKET));
-        chemicalReactor.addRecipe(Gas.WATER.item().item(), Gas.OXYGEN.item().item(), Gas.HYDROGEN.item().asQuantity(2));
+        chemicalReactor.addRecipe(new ItemStack(Material.WATER_BUCKET), Gas.WATER.item().clone(), new ItemStack(Material.BUCKET));
+        chemicalReactor.addRecipe(Gas.WATER.item().clone(), Gas.OXYGEN.item().clone(), Gas.HYDROGEN.item().asQuantity(2));
 
-        chemicalReactor.addRecipe(Gas.CARBON_DIOXIDE.item().item(), SlimefunItems.CARBON.item(), Gas.OXYGEN.item().asQuantity(2));
-        chemicalReactor.addRecipe(Gas.METHANE.item().item(), SlimefunItems.CARBON.item(), Gas.HYDROGEN.item().asQuantity(4));
-        chemicalReactor.addRecipe(Gas.HYDROCARBONS.item().item(), Gas.METHANE.item().asQuantity(6));
-        chemicalReactor.addRecipe(SlimefunItems.OIL_BUCKET.item(), Gas.HYDROCARBONS.item().item(), new ItemStack(Material.BUCKET));
+        chemicalReactor.addRecipe(Gas.CARBON_DIOXIDE.item().clone(), SlimefunItems.CARBON.clone(), Gas.OXYGEN.item().asQuantity(2));
+        chemicalReactor.addRecipe(Gas.METHANE.item().clone(), SlimefunItems.CARBON.clone(), Gas.HYDROGEN.item().asQuantity(4));
+        chemicalReactor.addRecipe(Gas.HYDROCARBONS.item().clone(), Gas.METHANE.item().asQuantity(6));
+        chemicalReactor.addRecipe(SlimefunItems.OIL_BUCKET.clone(), Gas.HYDROCARBONS.item().clone(), new ItemStack(Material.BUCKET));
 
-        chemicalReactor.addRecipe(Gas.AMMONIA.item().item(), Gas.NITROGEN.item().item(), Gas.HYDROGEN.item().asQuantity(3));
+        chemicalReactor.addRecipe(Gas.AMMONIA.item().clone(), Gas.NITROGEN.item().clone(), Gas.HYDROGEN.item().asQuantity(3));
 
         chemicalReactor.energyCapacity(512);
         chemicalReactor.energyPerTick(128);
@@ -767,9 +767,9 @@ public final class BaseItems {
     private static ItemStack item(Object obj) {
         if (obj == null) return null;
         if (obj instanceof ItemStack is) return is;
-        if (obj instanceof SlimefunItemStack sfi) return sfi.item();
+        if (obj instanceof SlimefunItemStack sfi) return sfi.clone();
         if (obj instanceof Material mat) return new ItemStack(mat);
-        if (obj instanceof io.github.addoncommunity.galactifun.api.universe.attributes.atmosphere.Gas gas) return gas.item().item();
+        if (obj instanceof io.github.addoncommunity.galactifun.api.universe.attributes.atmosphere.Gas gas) return gas.item().clone();
         throw new IllegalArgumentException("Unknown item type: " + obj);
     }
 

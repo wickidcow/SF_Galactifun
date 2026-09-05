@@ -53,7 +53,7 @@ public class Relic extends SlimefunItem {
         }
 
         public RelicSettings addOptional(@Nonnull SlimefunItemStack item, float weight) {
-            optionals.add(item.item(), weight);
+            optionals.add(item.clone(), weight);
             return this;
         }
 
@@ -63,7 +63,7 @@ public class Relic extends SlimefunItem {
         }
 
         public RelicSettings addRequired(@Nonnull SlimefunItemStack item, int min, int max) {
-            required.put(item.item(), new IntIntImmutablePair(min, max));
+            required.put(item.clone(), new IntIntImmutablePair(min, max));
             return this;
         }
 

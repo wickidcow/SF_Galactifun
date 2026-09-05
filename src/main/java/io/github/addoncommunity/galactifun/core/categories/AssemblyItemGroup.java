@@ -111,7 +111,7 @@ public final class AssemblyItemGroup extends FlexItemGroup {
             }
         }
 
-        menu.addItem(18, BaseItems.ASSEMBLY_TABLE.item(), ChestMenuUtils.getEmptyClickHandler());
+        menu.addItem(18, BaseItems.ASSEMBLY_TABLE.clone(), ChestMenuUtils.getEmptyClickHandler());
         menu.addItem(26, item.getKey(), ChestMenuUtils.getEmptyClickHandler());
 
         menu.open(p);

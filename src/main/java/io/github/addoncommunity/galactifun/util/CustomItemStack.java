@@ -38,17 +38,17 @@ public class CustomItemStack extends ItemStack {
     }
 
     public CustomItemStack(@Nonnull SlimefunItemStack item, int amount) {
-        super(item.item());
+        super(item.clone());
         setAmount(amount);
     }
 
     public CustomItemStack(@Nonnull SlimefunItemStack item, @Nullable String name, @Nullable String... lore) {
-        super(item.item());
+        super(item.clone());
         applyMeta(name, lore != null ? Arrays.asList(lore) : null);
     }
 
     public CustomItemStack(@Nonnull SlimefunItemStack item, @Nullable String name, @Nullable List<String> lore) {
-        super(item.item());
+        super(item.clone());
         applyMeta(name, lore);
     }
 

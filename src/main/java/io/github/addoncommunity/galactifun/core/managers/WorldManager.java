@@ -301,7 +301,7 @@ public final class WorldManager implements Listener {
             if (item != null && !removePlacedBlock(b)) {
                 e.setDropItems(false);
                 List<ItemStack> drops = new ArrayList<>();
-                ItemStack itemStack = item.item().clone();
+                ItemStack itemStack = item.clone();
                 drops.add(itemStack);
                 item.getItem().callItemHandler(BlockBreakHandler.class, h -> h.onPlayerBreak(e, itemStack, drops));
                 for (ItemStack drop : drops) {
@@ -335,7 +335,7 @@ public final class WorldManager implements Listener {
                 SlimefunItemStack item = world.getMappedItem(b);
                 if (item != null && !removePlacedBlock(b)) {
                     blocks.remove();
-                    w.dropItemNaturally(b.getLocation().add(0.5, 0, 0.5), item.item().clone());
+                    w.dropItemNaturally(b.getLocation().add(0.5, 0, 0.5), item.clone());
                     Scheduler.run(() -> b.setType(Material.AIR));
                 }
             }

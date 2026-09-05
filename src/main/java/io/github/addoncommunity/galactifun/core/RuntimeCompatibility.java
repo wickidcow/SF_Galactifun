@@ -109,17 +109,10 @@ public final class RuntimeCompatibility {
             ClassLoader loader = plugin.getClass().getClassLoader();
             Class.forName("io.github.thebusybiscuit.slimefun4.api.SlimefunAddon", false, loader);
             Class.forName("io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem", false, loader);
-            Class<?> slimefunItemStack = Class.forName(
-                    "io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack", false, loader);
-            slimefunItemStack.getMethod("item");
+            Class.forName("io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack", false, loader);
             Class.forName("me.mrCookieSlime.Slimefun.api.BlockStorage", false, loader);
             plugin.getLogger().info(" - Slimefun API linkage probe: passed");
             return true;
-        } catch (NoSuchMethodException missingBridge) {
-            plugin.getLogger().log(Level.SEVERE,
-                    "Slimefun Legacy is too old for this Galactifun build. Install a Legacy build that includes the SlimefunItemStack.item() compatibility bridge.",
-                    missingBridge);
-            return false;
         } catch (Throwable throwable) {
             plugin.getLogger().log(Level.SEVERE,
                     "Slimefun API linkage probe failed. This build expects the classic Slimefun 4/Legacy API surface.",
