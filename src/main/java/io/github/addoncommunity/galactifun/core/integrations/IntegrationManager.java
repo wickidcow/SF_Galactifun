@@ -61,7 +61,7 @@ public final class IntegrationManager {
                         + ", BentoBox=" + status(bentoBox)
                         + ", Geyser=" + status(geyser)
                         + ", Floodgate=" + status(floodgate)
-                        + ", Folia=" + (folia ? "experimental" : "not detected"));
+                        + ", Folia=" + (folia ? "detected (not release-supported)" : "not detected"));
     }
 
     private static String status(boolean enabled) {
