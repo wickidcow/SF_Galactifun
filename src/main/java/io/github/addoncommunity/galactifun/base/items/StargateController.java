@@ -25,9 +25,10 @@ import org.bukkit.metadata.FixedMetadataValue;
 
 import com.destroystokyo.paper.event.player.PlayerTeleportEndGatewayEvent;
 import io.github.addoncommunity.galactifun.Galactifun;
-import io.github.addoncommunity.galactifun.api.worlds.AlienWorld;
 import io.github.addoncommunity.galactifun.base.BaseItems;
+import io.github.addoncommunity.galactifun.core.managers.TravelManager.TravelType;
 import io.github.addoncommunity.galactifun.util.BSUtils;
+import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.mooy1.infinitylib.common.Events;
 import io.github.mooy1.infinitylib.common.Scheduler;
 import io.github.mooy1.infinitylib.machines.MenuBlock;
@@ -39,7 +40,6 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
@@ -49,36 +49,26 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 
-// TODO clean up if possible
 public final class StargateController extends SlimefunItem implements Listener {
 
-    private static final int[] BACKGROUND = new int[] { 1, 2, 6, 7, 8 };
+    private static final int[] BACKGROUND = new int[] {1, 2, 6, 7, 8};
     private static final int ADDRESS_SLOT = 3;
     private static final int DESTINATION_SLOT = 4;
     private static final int DEACTIVATE_SLOT = 5;
 
     private static final ComponentPosition[] RING_POSITIONS = new ComponentPosition[] {
-            // bottom
             new ComponentPosition(0, 1),
             new ComponentPosition(0, -1),
-
-            // corners
             new ComponentPosition(1, -2),
             new ComponentPosition(1, 2),
             new ComponentPosition(5, -2),
             new ComponentPosition(5, 2),
-
-            // left side
             new ComponentPosition(2, 3),
             new ComponentPosition(3, 3),
             new ComponentPosition(4, 3),
-
-            // right side
             new ComponentPosition(2, -3),
             new ComponentPosition(3, -3),
             new ComponentPosition(4, -3),
-
-            // top
             new ComponentPosition(6, -1),
             new ComponentPosition(6, 0),
             new ComponentPosition(6, 1),
@@ -101,157 +91,152 @@ public final class StargateController extends SlimefunItem implements Listener {
         portalPositions.add(new ComponentPosition(5, -1));
         portalPositions.add(new ComponentPosition(5, 0));
         portalPositions.add(new ComponentPosition(5, 1));
-
         PORTAL_POSITIONS = portalPositions.toArray(new ComponentPosition[0]);
     }
 
     public StargateController(ItemGroup category, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(category, item, recipeType, recipe);
-
         Events.registerListener(this);
 
-        addItemHandler((BlockUseHandler) e -> e.getClickedBlock().ifPresent(b -> onUse(e, e.getPlayer(), b)));
+        addItemHandler((BlockUseHandler) event ->
+                event.getClickedBlock().ifPresent(block -> onUse(event, event.getPlayer(), block)));
 
         addItemHandler(new BlockBreakHandler(true, true) {
             @Override
             @ParametersAreNonnullByDefault
-            public void onPlayerBreak(BlockBreakEvent e, ItemStack item, List<ItemStack> drops) {
-                if (Boolean.parseBoolean(BlockStorage.getLocationInfo(e.getBlock().getLocation(), "locked"))) {
-                    e.setCancelled(true);
-                    e.getPlayer().sendMessage(ChatColor.RED + "Deactivate the Stargate before destroying it");
+            public void onPlayerBreak(BlockBreakEvent event, ItemStack item, List<ItemStack> drops) {
+                if (Boolean.parseBoolean(BlockStorage.getLocationInfo(event.getBlock().getLocation(), "locked"))) {
+                    event.setCancelled(true);
+                    event.getPlayer().sendMessage(ChatColor.RED + "Deactivate the Stargate before destroying it");
                 }
             }
         });
     }
 
-    public static boolean isPartOfStargate(@Nonnull Block b) {
+    public static boolean isPartOfStargate(@Nonnull Block block) {
         for (ComponentPosition position : RING_POSITIONS) {
-            if (!position.isInSameRing(b)) {
+            if (!position.isInSameRing(block)) {
                 return false;
             }
         }
-
         return true;
     }
 
     @Nonnull
-    public static Optional<List<Block>> getRingBlocks(@Nonnull Block b) {
+    public static Optional<List<Block>> getRingBlocks(@Nonnull Block block) {
         List<Block> rings = new ArrayList<>();
         for (ComponentPosition position : RING_POSITIONS) {
-            if (position.isInSameRing(b)) {
-                rings.add(position.getBlock(b));
+            if (position.isInSameRing(block)) {
+                rings.add(position.getBlock(block));
             } else {
                 return Optional.empty();
             }
         }
-
         return Optional.of(rings);
     }
 
     @Nonnull
-    public static Optional<List<Block>> getPortalBlocks(@Nonnull Block b) {
+    public static Optional<List<Block>> getPortalBlocks(@Nonnull Block block) {
         List<Block> portals = new ArrayList<>();
         for (ComponentPosition position : PORTAL_POSITIONS) {
-            if (position.isPortal(b)) {
-                portals.add(position.getBlock(b));
+            if (position.isPortal(block)) {
+                portals.add(position.getBlock(block));
             } else {
                 return Optional.empty();
             }
         }
-
         return Optional.of(portals);
     }
 
     public static void lockBlocks(Block controller, boolean lock) {
         String data = Boolean.toString(lock);
-        getRingBlocks(controller).ifPresent(l -> l.forEach(b -> BlockStorage.addBlockInfo(b, "locked", data)));
-        getPortalBlocks(controller).ifPresent(l -> l.forEach(b -> BlockStorage.addBlockInfo(b, "locked", data)));
+        getRingBlocks(controller).ifPresent(blocks ->
+                blocks.forEach(block -> BlockStorage.addBlockInfo(block, "locked", data)));
+        getPortalBlocks(controller).ifPresent(blocks ->
+                blocks.forEach(block -> BlockStorage.addBlockInfo(block, "locked", data)));
     }
 
-    private void onUse(PlayerRightClickEvent event, Player p, Block b) {
-        if (!isPartOfStargate(b)) {
-            p.sendMessage(ChatColor.RED + "The Stargate is not assembled!");
+    private void onUse(PlayerRightClickEvent event, Player player, Block block) {
+        if (!isPartOfStargate(block)) {
+            player.sendMessage(ChatColor.RED + "The Stargate is not assembled!");
             return;
         }
+
         event.cancel();
-        if (getPortalBlocks(b).isEmpty()) {
+        if (getPortalBlocks(block).isEmpty()) {
             for (ComponentPosition position : PORTAL_POSITIONS) {
-                Block portal = position.getBlock(b);
+                Block portal = position.getBlock(block);
                 portal.setType(Material.END_GATEWAY);
                 EndGateway gateway = (EndGateway) portal.getState();
                 gateway.setAge(GATEWAY_TICKS);
-                gateway.setExitLocation(b.getLocation());
+                gateway.setExitLocation(block.getLocation());
                 gateway.update(false, false);
             }
 
-            String destAddress = BlockStorage.getLocationInfo(b.getLocation(), "destination");
-            if (destAddress != null) {
-                setDestination(destAddress, b, p);
+            String destinationAddress = BlockStorage.getLocationInfo(block.getLocation(), "destination");
+            if (destinationAddress != null) {
+                setDestination(destinationAddress, block, player);
             }
 
-            lockBlocks(b, true);
-            p.sendMessage(ChatColor.YELLOW + "Stargate activated!");
+            lockBlocks(block, true);
+            player.sendMessage(ChatColor.YELLOW + "Stargate activated!");
             return;
         }
 
-        ChestMenu menu = getMenu(b);
-        menu.open(p);
+        getMenu(block).open(player);
     }
 
     @Nonnull
-    private ChestMenu getMenu(@Nonnull Block b) {
+    private ChestMenu getMenu(@Nonnull Block block) {
         ChestMenu menu = new ChestMenu(this.getItemName());
         for (int i : BACKGROUND) {
             menu.addItem(i, MenuBlock.BACKGROUND_ITEM, ChestMenuUtils.getEmptyClickHandler());
         }
 
-        Location l = b.getLocation();
-
-        String address = BlockStorage.getLocationInfo(l, "gfsgAddress");
+        Location location = block.getLocation();
+        String address = BlockStorage.getLocationInfo(location, "gfsgAddress");
         if (address == null) {
-            String lString = String.format(
+            String locationString = String.format(
                     "%s-%d-%d-%d",
-                    b.getWorld().getName(),
-                    l.getBlockX(),
-                    l.getBlockY(),
-                    l.getBlockZ()
+                    block.getWorld().getName(),
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ()
             );
-            address = Integer.toHexString(lString.hashCode());
-            BlockStorage.addBlockInfo(b, "gfsgAddress", address);
+            address = Integer.toHexString(locationString.hashCode());
+            BlockStorage.addBlockInfo(block, "gfsgAddress", address);
         }
 
-        String destination = BlockStorage.getLocationInfo(l, "destination");
+        String destination = BlockStorage.getLocationInfo(location, "destination");
         destination = destination == null ? "" : destination;
 
-        String temp = address;
+        String copyAddress = address;
         menu.addItem(ADDRESS_SLOT, new CustomItemStack(
                 Material.BOOK,
                 "&fAddress: " + address,
                 "&7Click to send the address to chat"
-        ), (p, i, s, c) -> {
-            p.sendMessage(
-                    Component.text()
-                            .color(NamedTextColor.YELLOW)
-                            .content("Address (click to copy): " + temp)
-                            .clickEvent(ClickEvent.copyToClipboard(temp))
-                            .build()
-            );
-            p.closeInventory();
+        ), (player, i, stack, click) -> {
+            player.sendMessage(Component.text()
+                    .color(NamedTextColor.YELLOW)
+                    .content("Address (click to copy): " + copyAddress)
+                    .clickEvent(ClickEvent.copyToClipboard(copyAddress))
+                    .build());
+            player.closeInventory();
             return false;
         });
 
         menu.addItem(DEACTIVATE_SLOT, new CustomItemStack(
                 Material.BARRIER,
                 "&fClick to Deactivate the Stargate"
-        ), (p, i, s, c) -> {
-            getPortalBlocks(b).ifPresent(li -> {
-                for (Block block : li) {
-                    block.setType(Material.AIR);
-                    BlockStorage.clearBlockInfo(block);
+        ), (player, i, stack, click) -> {
+            getPortalBlocks(block).ifPresent(blocks -> {
+                for (Block portal : blocks) {
+                    portal.setType(Material.AIR);
+                    BlockStorage.clearBlockInfo(portal);
                 }
             });
-            lockBlocks(b, false);
-            p.closeInventory();
+            lockBlocks(block, false);
+            player.closeInventory();
             return false;
         });
 
@@ -259,111 +244,115 @@ public final class StargateController extends SlimefunItem implements Listener {
                 Material.RAIL,
                 "&fClick to Set Destination",
                 "&7Current Destination: " + destination
-        ), (p, i, s, c) -> {
-            p.sendMessage(ChatColor.YELLOW + "Type in the destination address");
-            ChatUtils.awaitInput(p, st -> setDestination(st, b, p));
-            p.closeInventory();
+        ), (player, i, stack, click) -> {
+            player.sendMessage(ChatColor.YELLOW + "Type in the destination address");
+            ChatUtils.awaitInput(player, input -> setDestination(input, block, player));
+            player.closeInventory();
             return false;
         });
 
         return menu;
     }
 
-    private static void setDestination(String destination, Block b, Player p) {
-        Location dest;
-        worldLoop:
-        {
+    private static void setDestination(String destination, Block block, Player player) {
+        Location target;
+        worldLoop: {
             for (BlockStorage storage : Slimefun.getRegistry().getWorlds().values()) {
                 for (Map.Entry<Location, Config> configEntry : storage.getRawStorage().entrySet()) {
-                    String bAddress = configEntry.getValue().getString("gfsgAddress");
-                    if (bAddress != null && bAddress.equals(destination)) {
-                        dest = configEntry.getKey();
+                    String blockAddress = configEntry.getValue().getString("gfsgAddress");
+                    if (blockAddress != null && blockAddress.equals(destination)) {
+                        target = configEntry.getKey();
                         break worldLoop;
                     }
                 }
             }
-            p.sendMessage(ChatColor.RED + "No destination found!");
+            player.sendMessage(ChatColor.RED + "No destination found!");
             return;
         }
 
-        Optional<List<Block>> portalOptional = getPortalBlocks(b);
-        if (portalOptional.isEmpty()) {
-            p.sendMessage(ChatColor.RED + "The Stargate is not lit for some reason...");
+        if (getPortalBlocks(block).isEmpty()) {
+            player.sendMessage(ChatColor.RED + "The Stargate is not lit for some reason...");
             return;
         }
 
-        BSUtils.setStoredLocation(b.getLocation(), "dest", dest);
-
-        p.sendMessage(ChatColor.YELLOW + String.format(
+        BSUtils.setStoredLocation(block.getLocation(), "dest", target);
+        player.sendMessage(ChatColor.YELLOW + String.format(
                 "Set Stargate destination to %d %d %d in %s",
-                dest.getBlockX(),
-                dest.getBlockY(),
-                dest.getBlockZ(),
-                dest.getWorld().getName()
+                target.getBlockX(),
+                target.getBlockY(),
+                target.getBlockZ(),
+                target.getWorld().getName()
         ));
-
-        BlockStorage.addBlockInfo(b, "destination", destination);
+        BlockStorage.addBlockInfo(block, "destination", destination);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
-    public void onGateBreak(BlockBreakEvent e) {
-        Block b = e.getBlock();
-        if (b.getType() == Material.END_GATEWAY &&
-                Boolean.parseBoolean(BlockStorage.getLocationInfo(b.getLocation(), "locked"))) {
-            e.setCancelled(true);
-            e.getPlayer().sendMessage(ChatColor.RED + "Deactivate the Stargate before destroying it");
+    public void onGateBreak(BlockBreakEvent event) {
+        Block block = event.getBlock();
+        if (block.getType() == Material.END_GATEWAY
+                && Boolean.parseBoolean(BlockStorage.getLocationInfo(block.getLocation(), "locked"))) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(ChatColor.RED + "Deactivate the Stargate before destroying it");
         }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
-    public void onUsePortal(PlayerTeleportEndGatewayEvent e) {
-        Location exit = e.getGateway().getExitLocation();
-        if (exit == null || !(BlockStorage.check(exit) instanceof StargateController)) return;
-        Location dest = BSUtils.getStoredLocation(exit, "dest");
-        if (dest == null) return;
-
-        e.setCancelled(true);
-
-        Player p = e.getPlayer();
-        if (p.hasMetadata("disableStargate")) return;
-
-        Block b = dest.getBlock();
-        if (BlockStorage.check(b, BaseItems.STARGATE_CONTROLLER.getItemId()) &&
-                StargateController.getPortalBlocks(b).isEmpty()) {
-            p.sendMessage(ChatColor.RED + "The destination Stargate is not activated");
+    public void onUsePortal(PlayerTeleportEndGatewayEvent event) {
+        Location exit = event.getGateway().getExitLocation();
+        if (exit == null || !(BlockStorage.check(exit) instanceof StargateController)) {
             return;
         }
 
-        Block destBlock = b.getRelative(1, 0, 0);
-        if (destBlock.getType().isEmpty()) {
-            // Check if the player is teleporting to an alien world, and if so, allow them to
-            AlienWorld world = Galactifun.worldManager().getAlienWorld(destBlock.getWorld());
-            if (world != null) {
-                e.getPlayer().setMetadata("CanTpAlienWorld", new FixedMetadataValue(Galactifun.instance(), true));
-            }
-            p.teleportAsync(destBlock.getLocation());
-            p.setMetadata("disableStargate", new FixedMetadataValue(Galactifun.instance(), true));
-            Scheduler.run(10, () -> p.removeMetadata("disableStargate", Galactifun.instance()));
-        } else {
-            p.sendMessage(ChatColor.RED + "The destination is blocked");
+        Location destination = BSUtils.getStoredLocation(exit, "dest");
+        if (destination == null || destination.getWorld() == null) {
+            return;
         }
+
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+        if (player.hasMetadata("disableStargate")) {
+            return;
+        }
+
+        Block destinationController = destination.getBlock();
+        if (BlockStorage.check(destinationController, BaseItems.STARGATE_CONTROLLER.getItemId())
+                && StargateController.getPortalBlocks(destinationController).isEmpty()) {
+            player.sendMessage(ChatColor.RED + "The destination Stargate is not activated");
+            return;
+        }
+
+        Block destinationBlock = destinationController.getRelative(1, 0, 0);
+        if (!destinationBlock.getType().isEmpty()) {
+            player.sendMessage(ChatColor.RED + "The destination is blocked");
+            return;
+        }
+
+        player.setMetadata("disableStargate", new FixedMetadataValue(Galactifun.instance(), true));
+        if (player.getWorld() != destinationBlock.getWorld()) {
+            Galactifun.travelManager().authorize(player, destinationBlock.getWorld(), TravelType.STARGATE);
+        }
+
+        player.teleportAsync(destinationBlock.getLocation()).whenComplete((success, throwable) -> Scheduler.run(() -> {
+            if (throwable != null || !Boolean.TRUE.equals(success)) {
+                Galactifun.travelManager().clear(player);
+                player.sendMessage(ChatColor.RED + "Stargate teleport failed");
+            }
+            Scheduler.run(10, () -> player.removeMetadata("disableStargate", Galactifun.instance()));
+        }));
     }
 
-    private static final record ComponentPosition(int y, int z) {
-
-        public boolean isInSameRing(@Nonnull Block b) {
-            return BlockStorage.check(b.getRelative(0, this.y, this.z)) instanceof StargateRing;
+    private record ComponentPosition(int y, int z) {
+        public boolean isInSameRing(@Nonnull Block block) {
+            return BlockStorage.check(block.getRelative(0, this.y, this.z)) instanceof StargateRing;
         }
 
         @Nonnull
-        public Block getBlock(@Nonnull Block b) {
-            return b.getRelative(0, this.y, this.z);
+        public Block getBlock(@Nonnull Block block) {
+            return block.getRelative(0, this.y, this.z);
         }
 
-        public boolean isPortal(@Nonnull Block b) {
-            return b.getRelative(0, this.y, this.z).getType() == Material.END_GATEWAY;
+        public boolean isPortal(@Nonnull Block block) {
+            return block.getRelative(0, this.y, this.z).getType() == Material.END_GATEWAY;
         }
-
     }
-
 }
