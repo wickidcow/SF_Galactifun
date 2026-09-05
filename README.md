@@ -24,7 +24,7 @@ Galactifun Legacy modernizes Galactifun for the current Albion/Slimefun Legacy s
 - Java **25**
 - Slimefun Legacy **4.1.45**
 - Purpur as a Paper-compatible secondary target
-- Folia detection is included, but Folia support remains **experimental**
+- Folia groundwork/detection is present, but **Galactifun 1.0 is not marked Folia-supported**
 
 The release JAR is named **`SF_Galactifun1.0.0.jar`**.
 
@@ -49,7 +49,8 @@ Rocket travel has been hardened for modern Paper servers:
 - stale launch locks recover automatically;
 - the source rocket is removed before destination cargo is created, closing the historical two-copy launch window;
 - breaking a launch pad returns the rocket, stored cargo and fuel;
-- breaking the rocket directly also returns its stored cargo and fuel exactly through Slimefun's normal drop path.
+- breaking the rocket directly also returns its stored cargo and fuel through Slimefun's normal drop path;
+- malformed legacy rocket fuel metadata is recovered instead of interrupting launch-pad ticks or block breaks.
 
 ### 🌀 Stargates and travel security
 
@@ -84,9 +85,15 @@ Galactifun does **not** hard-depend on a world manager. Optional integrations ar
 | **Multiverse-Portals** | Planet entry is blocked by default; planet exit can be allowed by configuration. |
 | **BentoBox** | Existing managed Earth/world setups are respected rather than silently replaced. |
 | **Geyser / Floodgate** | Detected as optional compatibility integrations. |
-| **Folia** | Detected, but currently considered experimental. |
+| **Folia** | Detection groundwork exists, but 1.0 intentionally does not opt in as Folia-supported. |
 
 Relevant defaults live under `integrations:` in `config.yml`.
+
+### Folia status
+
+Galactifun is a multi-world addon: it creates, loads, binds and manages dedicated planet worlds. Folia 26.2 still requires region/entity schedulers in place of the Bukkit scheduler and does not currently provide a safe drop-in path for the plugin-managed world lifecycle Galactifun depends on.
+
+For that reason, this release does **not** set `folia-supported: true`. Doing so before the world lifecycle and all region-owned tasks are actually safe would make the plugin appear compatible while risking thread-context failures or world corruption. Paper/Purpur remain the supported 1.0 targets.
 
 ---
 
