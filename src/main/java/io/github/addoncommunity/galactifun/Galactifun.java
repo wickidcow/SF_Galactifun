@@ -6,7 +6,6 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.generator.ChunkGenerator;
@@ -26,8 +25,10 @@ import io.github.addoncommunity.galactifun.core.commands.EffectsCommand;
 import io.github.addoncommunity.galactifun.core.commands.GalactiportCommand;
 import io.github.addoncommunity.galactifun.core.commands.SealedCommand;
 import io.github.addoncommunity.galactifun.core.commands.StructureCommand;
+import io.github.addoncommunity.galactifun.core.integrations.IntegrationManager;
 import io.github.addoncommunity.galactifun.core.managers.AlienManager;
 import io.github.addoncommunity.galactifun.core.managers.ProtectionManager;
+import io.github.addoncommunity.galactifun.core.managers.TravelManager;
 import io.github.addoncommunity.galactifun.core.managers.WorldManager;
 import io.github.mooy1.infinitylib.common.Scheduler;
 import io.github.mooy1.infinitylib.core.AbstractAddon;
@@ -36,25 +37,25 @@ import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.libraries.paperlib.PaperLib;
 
-
 public final class Galactifun extends AbstractAddon {
 
     private static Galactifun instance;
 
     private boolean isTest = false;
+    private boolean shouldDisable = false;
 
     private AlienManager alienManager;
     private WorldManager worldManager;
     private ProtectionManager protectionManager;
-
-    private boolean shouldDisable = false;
+    private TravelManager travelManager;
+    private IntegrationManager integrationManager;
 
     public Galactifun() {
-        super("Slimefun-Addon-Community", "Galactifun", "master", "auto-update");
+        super("wickidcow", "SF_Galactifun", "master", "auto-update");
     }
 
     public Galactifun(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file) {
-        super(loader, description, dataFolder, file, "Slimefun-Addon-Community", "Galactifun", "master", "auto-update");
+        super(loader, description, dataFolder, file, "wickidcow", "SF_Galactifun", "master", "auto-update");
         isTest = true;
     }
 
@@ -74,30 +75,33 @@ public final class Galactifun extends AbstractAddon {
         return instance.protectionManager;
     }
 
+    public static TravelManager travelManager() {
+        return instance.travelManager;
+    }
+
+    public static IntegrationManager integrations() {
+        return instance.integrationManager;
+    }
+
     @Override
     protected void enable() {
         instance = this;
 
         if (!isTest) {
             if (!PaperLib.isPaper()) {
-                log(Level.SEVERE, "Galactifun only supports Paper and its forks (i.e. Airplane and Purpur)");
-                log(Level.SEVERE, "Please use Paper or a fork of Paper");
+                log(Level.SEVERE, "Galactifun Legacy requires Paper or a compatible Paper fork such as Purpur.");
                 shouldDisable = true;
             }
             if (Slimefun.getMinecraftVersion().isBefore(MinecraftVersion.MINECRAFT_1_17)) {
-                log(Level.SEVERE, "Galactifun only supports Minecraft 1.17 and above");
-                log(Level.SEVERE, "Please use Minecraft 1.17 or above");
+                log(Level.SEVERE, "Galactifun requires a modern Minecraft server.");
                 shouldDisable = true;
             }
             if (Bukkit.getPluginManager().isPluginEnabled("ClayTech")) {
-                log(Level.SEVERE, "Galactifun will not work properly with ClayTech");
-                log(Level.SEVERE, "Please disable ClayTech");
+                log(Level.SEVERE, "Galactifun will not work properly with ClayTech. Please disable ClayTech.");
                 shouldDisable = true;
             }
-
             if (Bukkit.getPluginManager().isPluginEnabled("ChatColor2")) {
-                log(Level.SEVERE, "Galactifun will not work properly with ChatColor2");
-                log(Level.SEVERE, "Please disable ChatColor2");
+                log(Level.SEVERE, "Galactifun will not work properly with ChatColor2. Please disable ChatColor2.");
                 shouldDisable = true;
             }
 
@@ -107,13 +111,14 @@ public final class Galactifun extends AbstractAddon {
             }
         }
 
+        saveDefaultConfig();
         new Metrics(this, 11613);
 
-        // Auto updater removed for modern standalone builds
-
+        this.integrationManager = new IntegrationManager(this);
+        this.travelManager = new TravelManager();
+        this.protectionManager = new ProtectionManager();
         this.alienManager = new AlienManager(this);
         this.worldManager = new WorldManager(this);
-        this.protectionManager = new ProtectionManager();
 
         BaseAlien.setup(this.alienManager);
         if (!isTest) {
@@ -123,15 +128,13 @@ public final class Galactifun extends AbstractAddon {
         BaseMats.setup();
         BaseItems.setup(this);
 
-        // log after startup
         Scheduler.run(() -> log(Level.INFO,
-                "################# Galactifun " + getPluginVersion() + " #################",
+                "################# Galactifun Legacy " + getPluginVersion() + " #################",
                 "",
-                "Galactifun is open source, you can contribute or report bugs at: ",
-                getBugTrackerURL(),
-                "Join the Slimefun Addon Community Discord: discord.gg/SqD3gg5SAU",
+                "Primary target: Slimefun Legacy / Paper 26.2 / Java 25",
+                "Source and bug tracker: " + getBugTrackerURL(),
                 "",
-                "###################################################"
+                "########################################################"
         ));
 
         getAddonCommand()
@@ -145,34 +148,37 @@ public final class Galactifun extends AbstractAddon {
 
     @Override
     protected void disable() {
-        if (shouldDisable) return;
+        if (shouldDisable) {
+            return;
+        }
 
-        this.alienManager.onDisable();
+        if (this.alienManager != null) {
+            this.alienManager.onDisable();
+        }
+        if (this.travelManager != null) {
+            this.travelManager.clearExpired();
+        }
 
-        // Do this last
         instance = null;
     }
 
     @Override
     public void load() {
-        if (!isTest) {
-            // Default to not logging world settings
-            Bukkit.spigot().getConfig().set("world-settings.default.verbose", false);
-        }
+        // Galactifun Legacy deliberately does not mutate global Paper/Spigot settings.
     }
 
     @Nullable
     @Override
     public ChunkGenerator getDefaultWorldGenerator(@Nonnull String worldName, @Nullable String id) {
         World world = Bukkit.getWorld(worldName);
-        if (world == null) return null;
-
-        PlanetaryWorld planetaryWorld = this.worldManager.getWorld(world);
-        if (planetaryWorld instanceof AlienWorld) {
-            return planetaryWorld.world().getGenerator();
+        if (world != null && this.worldManager != null) {
+            PlanetaryWorld planetaryWorld = this.worldManager.getWorld(world);
+            if (planetaryWorld instanceof AlienWorld) {
+                return planetaryWorld.world().getGenerator();
+            }
         }
 
-        return null;
+        AlienWorld pending = BaseUniverse.findAlienWorld(worldName, id);
+        return pending == null ? null : pending.createChunkGenerator();
     }
-
 }
