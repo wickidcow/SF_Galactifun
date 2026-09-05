@@ -50,10 +50,9 @@ public class Electrolyzer extends AContainer {
 
     private static ItemStack toItem(Object obj) {
         if (obj == null) return null;
-        if (obj instanceof ItemStack is) return is;
-        if (obj instanceof SlimefunItemStack sfi) return sfi.item();
+        if (obj instanceof ItemStack is) return is.clone();
         if (obj instanceof Material mat) return new ItemStack(mat);
-        if (obj instanceof Gas gas) return gas.item().item();
+        if (obj instanceof Gas gas) return gas.item().clone();
         throw new IllegalArgumentException("Unknown item type: " + obj);
     }
 
@@ -67,5 +66,4 @@ public class Electrolyzer extends AContainer {
     public String getMachineIdentifier() {
         return "ELECTROLYZER";
     }
-
 }
