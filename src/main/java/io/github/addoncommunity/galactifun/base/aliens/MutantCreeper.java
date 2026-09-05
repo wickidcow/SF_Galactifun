@@ -36,7 +36,7 @@ public final class MutantCreeper extends Alien<Creeper> {
     @Override
     public void onDeath(@Nonnull EntityDeathEvent e) {
         e.getDrops().clear();
-        e.getDrops().add(new SlimefunItemStack(BaseMats.MUNPOWDER, ThreadLocalRandom.current().nextInt(2)).item());
+        e.getDrops().add(new SlimefunItemStack(BaseMats.MUNPOWDER, ThreadLocalRandom.current().nextInt(2)));
     }
 
     @Override
@@ -59,5 +59,4 @@ public final class MutantCreeper extends Alien<Creeper> {
             }
         }
     }
-
 }
