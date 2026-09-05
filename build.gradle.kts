@@ -1,3 +1,5 @@
+import org.gradle.api.attributes.java.TargetJvmVersion
+
 plugins {
     `java-library`
     id("com.gradleup.shadow") version "8.3.6"
@@ -36,6 +38,14 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
+}
+
+// Paper 26.2 publishes Java 25 API classes. The build JVM can consume those classes while
+// Galactifun itself remains deliberately compiled to Java 21 bytecode for Legacy compatibility.
+configurations.configureEach {
+    if (isCanBeResolved) {
+        attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+    }
 }
 
 tasks.withType<JavaCompile> {
