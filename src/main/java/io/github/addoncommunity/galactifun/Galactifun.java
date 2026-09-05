@@ -28,6 +28,7 @@ import io.github.addoncommunity.galactifun.core.commands.StructureCommand;
 import io.github.addoncommunity.galactifun.core.integrations.IntegrationManager;
 import io.github.addoncommunity.galactifun.core.managers.AlienManager;
 import io.github.addoncommunity.galactifun.core.managers.ProtectionManager;
+import io.github.addoncommunity.galactifun.core.managers.StargateRegistry;
 import io.github.addoncommunity.galactifun.core.managers.TravelManager;
 import io.github.addoncommunity.galactifun.core.managers.WorldManager;
 import io.github.mooy1.infinitylib.common.Scheduler;
@@ -49,6 +50,7 @@ public final class Galactifun extends AbstractAddon {
     private ProtectionManager protectionManager;
     private TravelManager travelManager;
     private IntegrationManager integrationManager;
+    private StargateRegistry stargateRegistry;
 
     public Galactifun() {
         super("wickidcow", "SF_Galactifun", "master", "auto-update");
@@ -81,6 +83,10 @@ public final class Galactifun extends AbstractAddon {
 
     public static IntegrationManager integrations() {
         return instance.integrationManager;
+    }
+
+    public static StargateRegistry stargates() {
+        return instance.stargateRegistry;
     }
 
     @Override
@@ -119,6 +125,7 @@ public final class Galactifun extends AbstractAddon {
         this.protectionManager = new ProtectionManager();
         this.alienManager = new AlienManager(this);
         this.worldManager = new WorldManager(this);
+        this.stargateRegistry = new StargateRegistry(this);
 
         BaseAlien.setup(this.alienManager);
         if (!isTest) {
