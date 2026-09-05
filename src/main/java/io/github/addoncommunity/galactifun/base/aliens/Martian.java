@@ -38,17 +38,15 @@ public final class Martian extends Alien<ZombieVillager> {
     public Martian(String id, String name, double maxHealth, int spawnChance) {
         super(ZombieVillager.class, id, name, maxHealth, spawnChance);
 
-        // Fixes the sword
         this.trades.put(Material.IRON_SWORD.name(), new ItemStack(Material.IRON_SWORD));
         this.trades.put(Material.IRON_ORE.name(), new ItemStack(Material.IRON_INGOT));
-        this.trades.put(SlimefunItems.REINFORCED_PLATE.getItemId(), BaseMats.TUNGSTEN_INGOT.item());
+        this.trades.put(SlimefunItems.REINFORCED_PLATE.getItemId(), BaseMats.TUNGSTEN_INGOT.clone());
     }
 
     @Override
     public void onSpawn(@Nonnull ZombieVillager spawned) {
         spawned.setCanPickupItems(false);
 
-        // 1/64 chance
         if (ThreadLocalRandom.current().nextDouble() <= 0.015625) {
             spawned.setCustomName(ChatColor.RED + "The Zerix");
             spawned.setCustomNameVisible(true);
@@ -100,7 +98,6 @@ public final class Martian extends Alien<ZombieVillager> {
             Scheduler.run(60, () -> {
                 if (entity.isValid()) {
                     entity.getWorld().dropItemNaturally(entity.getLocation(), trade.clone());
-
                     entity.getEquipment().setItemInOffHand(null);
                     entity.removePotionEffect(PotionEffectType.SLOWNESS);
                 }
@@ -112,5 +109,4 @@ public final class Martian extends Alien<ZombieVillager> {
     protected boolean canSpawnInLightLevel(int lightLevel) {
         return true;
     }
-
 }
