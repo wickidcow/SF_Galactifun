@@ -14,7 +14,7 @@ import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 
 /**
  * CustomItemStack extending Bukkit's {@link ItemStack} directly.
- * Ensures binary and runtime compatibility across Paper 1.21.4 and Slimefun 4.
+ * Ensures binary and runtime compatibility across modern Paper and Slimefun Legacy.
  */
 public class CustomItemStack extends ItemStack {
 
@@ -38,17 +38,17 @@ public class CustomItemStack extends ItemStack {
     }
 
     public CustomItemStack(@Nonnull SlimefunItemStack item, int amount) {
-        super(item.item());
+        super(item);
         setAmount(amount);
     }
 
     public CustomItemStack(@Nonnull SlimefunItemStack item, @Nullable String name, @Nullable String... lore) {
-        super(item.item());
+        super(item);
         applyMeta(name, lore != null ? Arrays.asList(lore) : null);
     }
 
     public CustomItemStack(@Nonnull SlimefunItemStack item, @Nullable String name, @Nullable List<String> lore) {
-        super(item.item());
+        super(item);
         applyMeta(name, lore);
     }
 
