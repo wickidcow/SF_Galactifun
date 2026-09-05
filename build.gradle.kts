@@ -39,8 +39,8 @@ dependencies {
     implementation("org.apache.commons:commons-lang3:3.18.0")
     implementation("commons-codec:commons-codec:1.19.0")
 
-    // Paper 26.2 / Minecraft 1.21.11 is the primary runtime target.
-    compileOnly("io.papermc.paper:paper-api:26.2.build.+")
+    // Pin the exact Paper 26.2 stable API used by the 1.0 release target.
+    compileOnly("io.papermc.paper:paper-api:26.2.build.121-stable")
 
     // Compile against the exact Slimefun Legacy JAR supplied by CI or the developer.
     compileOnly(files(slimefunCoreJar))
