@@ -1,6 +1,5 @@
 package io.github.addoncommunity.galactifun;
 
-import java.io.File;
 import java.util.logging.Level;
 
 import javax.annotation.Nonnull;
@@ -9,8 +8,6 @@ import javax.annotation.Nullable;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.generator.ChunkGenerator;
-import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.java.JavaPluginLoader;
 
 import io.github.addoncommunity.galactifun.api.worlds.AlienWorld;
 import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
@@ -37,8 +34,6 @@ public final class Galactifun extends AbstractAddon {
 
     private static Galactifun instance;
 
-    private boolean isTest = false;
-
     private AlienManager alienManager;
     private WorldManager worldManager;
     private ProtectionManager protectionManager;
@@ -47,11 +42,6 @@ public final class Galactifun extends AbstractAddon {
 
     public Galactifun() {
         super("Slimefun-Addon-Community", "Galactifun", "master", "auto-update");
-    }
-
-    public Galactifun(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file) {
-        super(loader, description, dataFolder, file, "Slimefun-Addon-Community", "Galactifun", "master", "auto-update");
-        isTest = true;
     }
 
     public static AlienManager alienManager() {
@@ -74,7 +64,7 @@ public final class Galactifun extends AbstractAddon {
     protected void enable() {
         instance = this;
 
-        if (!isTest && !RuntimeCompatibility.preflight(this)) {
+        if (!RuntimeCompatibility.preflight(this)) {
             shouldDisable = true;
             Bukkit.getPluginManager().disablePlugin(this);
             return;
@@ -89,18 +79,14 @@ public final class Galactifun extends AbstractAddon {
         this.protectionManager = new ProtectionManager();
 
         BaseAlien.setup(this.alienManager);
-        if (!isTest) {
-            BaseUniverse.setup(this);
-        }
+        BaseUniverse.setup(this);
         CoreItemGroup.setup(this);
         BaseMats.setup();
         BaseItems.setup(this);
 
         // Verify the fully initialized world registry, then log the normal startup banner.
         Scheduler.run(() -> {
-            if (!isTest) {
-                RuntimeCompatibility.postStartup(this);
-            }
+            RuntimeCompatibility.postStartup(this);
             log(Level.INFO,
                     "################# Galactifun " + getPluginVersion() + " #################",
                     "",
@@ -134,14 +120,6 @@ public final class Galactifun extends AbstractAddon {
 
         // Do this last.
         instance = null;
-    }
-
-    @Override
-    public void load() {
-        if (!isTest) {
-            // Preserve the historical default of suppressing verbose world settings output.
-            Bukkit.spigot().getConfig().set("world-settings.default.verbose", false);
-        }
     }
 
     @Nullable
