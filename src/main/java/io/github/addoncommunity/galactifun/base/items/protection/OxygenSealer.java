@@ -69,10 +69,8 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
 
             @Override
             public void uniqueTick() {
-                // to prevent memory leaks if something happens (block breaks aren't the only thing that can)
                 allBlocks.removeIf(pos -> !(BlockStorage.check(pos.toLocation()) instanceof OxygenSealer));
 
-                // every 6 slimefun ticks (every 3 seconds)
                 if (counter < 6) {
                     counter++;
                 } else {
@@ -84,13 +82,11 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
     }
 
     private void uniqueTick() {
-        //noinspection deprecation
         Galactifun.protectionManager().clearOxygenBlocks();
         for (BlockPosition l : allBlocks) {
             updateProtections(l);
         }
     }
-
 
     @Override
     protected void onPlace(@Nonnull BlockPlaceEvent e, @Nonnull Block b) {
@@ -143,12 +139,11 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
         }
 
         BlockMenu menu = BlockStorage.getInventory(b);
-        if (!SlimefunUtils.isItemSimilar(menu.getItemInSlot(OXYGEN_SLOT), Gas.OXYGEN.item().item(), false, false)) {
+        if (!SlimefunUtils.isItemSimilar(menu.getItemInSlot(OXYGEN_SLOT), Gas.OXYGEN.item(), false, false)) {
             updateHologram(b, "&cNo Oxygen");
             BSUtils.addBlockInfo(b, NO_OXYGEN, true);
             return;
         }
-        // to protect against people looping back and forth one oxygen tank and tricking it into thinking there is oxygen
         if (Galactifun.slimefunTickCount() % 18 == 0 || BSUtils.getStoredBoolean(l, NO_OXYGEN)) {
             menu.consumeItem(OXYGEN_SLOT);
             BSUtils.addBlockInfo(b, NO_OXYGEN, false);
@@ -161,20 +156,16 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
             }
         }
 
-        // check if sealed using flood fill
         Optional<Set<BlockPosition>> returned = Util.floodFill(l, range);
-        // not sealed; continue on to the next block
         if (returned.isEmpty()) {
             updateHologram(b, "&cArea Not Sealed or Too Big");
             return;
         }
 
         for (BlockPosition bp : returned.get()) {
-            // add a protection to the location
             Galactifun.protectionManager().addOxygenBlock(bp);
         }
 
         updateHologram(b, "&aOperational");
     }
-
 }
