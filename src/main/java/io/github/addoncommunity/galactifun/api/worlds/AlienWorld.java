@@ -13,6 +13,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.commons.lang3.Validate;
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -38,12 +39,11 @@ import io.github.addoncommunity.galactifun.api.universe.attributes.atmosphere.At
 import io.github.addoncommunity.galactifun.api.universe.types.PlanetaryType;
 import io.github.addoncommunity.galactifun.api.worlds.populators.relics.FallenSatellitePopulator;
 import io.github.addoncommunity.galactifun.base.universe.earth.EarthOrbit;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import me.mrCookieSlime.Slimefun.api.BlockStorage;
 
 /**
- * Any alien world
+ * Any alien world.
  *
  * @author Seggan
  * @author Mooy1
@@ -74,57 +74,21 @@ public abstract class AlienWorld extends PlanetaryWorld {
         }
 
         Galactifun.log(Level.INFO, "Loading planet " + name());
-
         String worldName = "world_galactifun_" + this.id;
 
-        // Load or create world
-        World world = new WorldCreator(worldName)
-                .generator(replaceChunkGenerator(new ChunkGenerator() {
-
-                    @Nullable
-                    @Override
-                    public BiomeProvider getDefaultBiomeProvider(@Nonnull WorldInfo worldInfo) {
-                        return getBiomeProvider(worldInfo);
-                    }
-
-                    @Override
-                    public void generateBedrock(@Nonnull WorldInfo worldInfo, @Nonnull Random random, int chunkX, int chunkZ, @Nonnull ChunkData chunkData) {
-                        int bedrock = getBedrockLayer();
-                        for (int x = 0; x < 16; x++) {
-                            for (int z = 0; z < 16; z++) {
-                                chunkData.setBlock(x, bedrock, z, Material.BEDROCK);
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void generateNoise(@Nonnull WorldInfo worldInfo, @Nonnull Random random, int x, int z, @Nonnull ChunkData chunkData) {
-                        generateChunk(chunkData, random, worldInfo, x, z);
-                    }
-
-                    @Override
-                    public void generateSurface(@Nonnull WorldInfo worldInfo, @Nonnull Random random, int x, int z, @Nonnull ChunkData chunkData) {
-                        AlienWorld.this.generateSurface(chunkData, random, worldInfo, x, z);
-                    }
-
-                    @Nonnull
-                    @Override
-                    public List<BlockPopulator> getDefaultPopulators(@Nonnull World world) {
-                        List<BlockPopulator> list = new ArrayList<>(1);
-                        getPopulators(list);
-                        if (getSetting("generate-fallen-satellites", Boolean.class, true)) {
-                            list.add(new FallenSatellitePopulator(0.5));
-                        }
-                        return list;
-                    }
-                }))
-                .environment(atmosphere().environment())
-                .createWorld();
+        // Respect worlds already loaded by Multiverse or another compatible world manager.
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            world = new WorldCreator(worldName)
+                    .generator(createChunkGenerator())
+                    .environment(atmosphere().environment())
+                    .createWorld();
+        }
 
         Validate.notNull(world, "There was an error loading the world for " + worldName);
 
         if (world.getEnvironment() == World.Environment.THE_END) {
-            // Prevents ender dragon spawn using portal, surrounds portal with bedrock
+            // Prevent an Ender Dragon/exit portal from becoming part of planet gameplay.
             world.getBlockAt(0, 0, 0).setType(Material.END_PORTAL);
             world.getBlockAt(0, 1, 0).setType(Material.BEDROCK);
             world.getBlockAt(1, 0, 0).setType(Material.BEDROCK);
@@ -133,11 +97,58 @@ public abstract class AlienWorld extends PlanetaryWorld {
             world.getBlockAt(0, 0, -1).setType(Material.BEDROCK);
         }
 
-        // load effects
         dayCycle().applyEffects(world);
         atmosphere().applyEffects(world);
-
         return world;
+    }
+
+    /**
+     * Builds this planet's chunk generator without requiring the Bukkit world to already exist.
+     * This lets Multiverse and other external world managers request Galactifun's generator first.
+     */
+    @Nonnull
+    public final ChunkGenerator createChunkGenerator() {
+        return replaceChunkGenerator(new ChunkGenerator() {
+            @Nullable
+            @Override
+            public BiomeProvider getDefaultBiomeProvider(@Nonnull WorldInfo worldInfo) {
+                return getBiomeProvider(worldInfo);
+            }
+
+            @Override
+            public void generateBedrock(@Nonnull WorldInfo worldInfo, @Nonnull Random random,
+                                        int chunkX, int chunkZ, @Nonnull ChunkData chunkData) {
+                int bedrock = getBedrockLayer();
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        chunkData.setBlock(x, bedrock, z, Material.BEDROCK);
+                    }
+                }
+            }
+
+            @Override
+            public void generateNoise(@Nonnull WorldInfo worldInfo, @Nonnull Random random,
+                                      int x, int z, @Nonnull ChunkData chunkData) {
+                generateChunk(chunkData, random, worldInfo, x, z);
+            }
+
+            @Override
+            public void generateSurface(@Nonnull WorldInfo worldInfo, @Nonnull Random random,
+                                        int x, int z, @Nonnull ChunkData chunkData) {
+                AlienWorld.this.generateSurface(chunkData, random, worldInfo, x, z);
+            }
+
+            @Nonnull
+            @Override
+            public List<BlockPopulator> getDefaultPopulators(@Nonnull World world) {
+                List<BlockPopulator> list = new ArrayList<>();
+                getPopulators(list);
+                if (getSetting("generate-fallen-satellites", Boolean.class, true)) {
+                    list.add(new FallenSatellitePopulator(0.5));
+                }
+                return list;
+            }
+        });
     }
 
     public final void addSpecies(@Nonnull Alien<?>... aliens) {
@@ -155,9 +166,7 @@ public abstract class AlienWorld extends PlanetaryWorld {
     }
 
     /**
-     * To allow worlds to be made of {@link SlimefunItem}s without using huge amounts of {@link BlockStorage},
-     * I invented block mappings. Simply pass a {@link Material} and a {@link SlimefunItemStack}, and any
-     * generated {@code vanillaItem}s will drop {@code slimefunItem}s
+     * Allows worlds to be made of Slimefun items without storing every generated block in BlockStorage.
      */
     public final void addBlockMapping(@Nonnull Material vanillaItem, @Nonnull SlimefunItemStack slimefunItem) {
         this.blockMappings.put(vanillaItem, slimefunItem);
@@ -172,63 +181,37 @@ public abstract class AlienWorld extends PlanetaryWorld {
         return false;
     }
 
-    /**
-     * Override and set to false if your world is unimportant
-     */
     protected boolean enabledByDefault() {
         return true;
     }
 
     /**
-     * Generate a chunk
-     *
-     * @deprecated generation has been changed. use {@link #generateChunk(ChunkGenerator.ChunkData, Random, WorldInfo, int, int)} instead
+     * @deprecated generation has been changed. Use the WorldInfo-based method instead.
      */
     @Deprecated
     protected void generateChunk(@Nonnull ChunkGenerator.ChunkData chunk, @Nonnull ChunkGenerator.BiomeGrid grid,
                                  @Nonnull Random random, @Nonnull World world, int chunkX, int chunkZ) {
     }
 
-    /**
-     * Generate a chunk
-     */
     protected abstract void generateChunk(@Nonnull ChunkGenerator.ChunkData chunk, @Nonnull Random random,
                                           @Nonnull WorldInfo world, int chunkX, int chunkZ);
 
-    /**
-     * Optionally, generate the surface step of the world
-     */
-    protected void generateSurface(@Nonnull ChunkGenerator.ChunkData chunk, @Nonnull Random random, @Nonnull WorldInfo world, int chunkX, int chunkZ) {
+    protected void generateSurface(@Nonnull ChunkGenerator.ChunkData chunk, @Nonnull Random random,
+                                   @Nonnull WorldInfo world, int chunkX, int chunkZ) {
     }
 
-    /**
-     * Add all chunk populators to this list
-     */
     protected abstract void getPopulators(@Nonnull List<BlockPopulator> populators);
 
-    /**
-     * Get the {@link BiomeProvider} for this world
-     *
-     * @return the {@link BiomeProvider} for this world, or null for vanilla biomes
-     */
     @Nullable
     protected BiomeProvider getBiomeProvider(@Nonnull WorldInfo info) {
         return null;
     }
 
-    /**
-     * Optionally replace the default {@link ChunkGenerator} for this world
-     */
     @Nonnull
     protected ChunkGenerator replaceChunkGenerator(@Nonnull ChunkGenerator defaultGenerator) {
         return defaultGenerator;
     }
 
-    /**
-     * Returns the y layer at which bedrock is generated
-     *
-     * @return the y layer of bedrock in this world
-     */
     protected int getBedrockLayer() {
         return 0;
     }
@@ -239,45 +222,44 @@ public abstract class AlienWorld extends PlanetaryWorld {
 
     public final void tickWorld() {
         World world = world();
+        if (world == null || Bukkit.getWorld(world.getUID()) == null) {
+            return;
+        }
 
-        // time
         dayCycle().tick(world);
 
-        // player effects
-        for (Player p : world.getPlayers()) {
+        List<Player> players = world.getPlayers();
+        for (Player p : players) {
             gravity().applyGravity(p);
             if (p.getGameMode() == GameMode.SURVIVAL) {
                 applyEffects(p);
             }
         }
 
-        // time
-        dayCycle().tick(world);
+        if (this.species.isEmpty() || players.isEmpty()) {
+            return;
+        }
 
-        // mob spawns
-        if (!this.species.isEmpty() && !world.getPlayers().isEmpty()) {
-            Random rand = ThreadLocalRandom.current();
+        Random rand = ThreadLocalRandom.current();
+        Collections.shuffle(this.species, rand);
 
-            // shuffles the list so each alien has a fair chance of being first
-            Collections.shuffle(this.species, rand);
-
-            int players = world.getPlayers().size();
-            int mobs = 0;
-            for (LivingEntity e : world.getLivingEntities()) {
-                if (Galactifun.alienManager().getAlien(e) != null) {
-                    mobs++;
-                }
+        int mobs = 0;
+        for (LivingEntity entity : world.getLivingEntities()) {
+            if (Galactifun.alienManager().getAlien(entity) != null) {
+                mobs++;
             }
-            int max = players * Galactifun.worldManager().maxAliensPerPlayer();
+        }
 
-            if (mobs < max) {
-                for (Alien<?> alien : this.species) {
-                    if ((mobs += alien.attemptSpawn(rand, world)) > max) {
-                        break;
-                    }
-                }
+        int max = players.size() * Galactifun.worldManager().maxAliensPerPlayer();
+        if (mobs >= max) {
+            return;
+        }
+
+        for (Alien<?> alien : this.species) {
+            mobs += alien.attemptSpawn(rand, world);
+            if (mobs >= max) {
+                break;
             }
         }
     }
-
 }
