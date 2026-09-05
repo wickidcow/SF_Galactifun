@@ -1,5 +1,10 @@
 package io.github.addoncommunity.galactifun.base;
 
+import java.util.List;
+import java.util.Locale;
+import java.util.logging.Level;
+
+import javax.annotation.Nullable;
 
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -32,16 +37,12 @@ import io.github.addoncommunity.galactifun.base.universe.saturn.Enceladus;
 import io.github.addoncommunity.galactifun.base.universe.saturn.Titan;
 
 /**
- * Registry of objects, aliens, and worlds in the base universe
- *
- * @author Mooy1
- * @author Seggan
+ * Registry of objects, aliens, and worlds in the base universe.
  */
 public final class BaseUniverse {
 
     private BaseUniverse() {
     }
-
 
     public static final TheUniverse THE_UNIVERSE = new TheUniverse("The Universe");
     public static final Galaxy MILKY_WAY = new Galaxy(
@@ -113,7 +114,8 @@ public final class BaseUniverse {
                     .build(),
             Gravity.relativeToEarth(1.06)
     );
-    public static final PlanetaryWorld EARTH = new Earth("Earth",
+    public static final PlanetaryWorld EARTH = new Earth(
+            "Earth",
             PlanetaryType.TERRESTRIAL,
             Orbit.kilometers(149_600_000L, 1D),
             SOLAR_SYSTEM,
@@ -129,7 +131,8 @@ public final class BaseUniverse {
             EARTH,
             new ItemStack(Material.OBSIDIAN),
             DayCycle.ETERNAL_NIGHT,
-            Atmosphere.NONE, Gravity.ZERO
+            Atmosphere.NONE,
+            Gravity.ZERO
     );
     public static final AlienWorld VENUS = new Venus(
             "Venus",
@@ -206,6 +209,9 @@ public final class BaseUniverse {
             Gravity.relativeToEarth(0.0113)
     );
 
+    private static final List<AlienWorld> ALIEN_WORLDS = List.of(
+            VENUS, IO, EUROPA, EARTH_ORBIT, ENCALADUS, TITAN, MARS, THE_MOON
+    );
 
     public static void setup(Galactifun galactifun) {
         VENUS.addSpecies(BaseAlien.FIRESTORM, BaseAlien.SKYWHALE);
@@ -213,17 +219,52 @@ public final class BaseUniverse {
         THE_MOON.addSpecies(BaseAlien.MUTANT_CREEPER);
         TITAN.addSpecies(BaseAlien.LEECH, BaseAlien.TITAN, BaseAlien.TITAN_KING, BaseAlien.SKYWHALE);
 
-        VENUS.register(galactifun);
-        IO.register(galactifun);
-        EUROPA.register(galactifun);
-        EARTH.register(galactifun);
-        EARTH_ORBIT.register(galactifun);
-        ENCALADUS.register(galactifun);
-        TITAN.register(galactifun);
-        MARS.register(galactifun);
-        THE_MOON.register(galactifun);
+        safeRegister(VENUS, galactifun);
+        safeRegister(IO, galactifun);
+        safeRegister(EUROPA, galactifun);
+        safeRegister(EARTH, galactifun);
+        safeRegister(EARTH_ORBIT, galactifun);
+        safeRegister(ENCALADUS, galactifun);
+        safeRegister(TITAN, galactifun);
+        safeRegister(MARS, galactifun);
+        safeRegister(THE_MOON, galactifun);
 
         Gas.setRecipes();
     }
 
+    private static void safeRegister(PlanetaryWorld world, Galactifun galactifun) {
+        try {
+            world.register(galactifun);
+        } catch (Throwable throwable) {
+            Galactifun.log(Level.SEVERE,
+                    "Failed to load planet '" + world.name() + "'. The rest of Galactifun will continue loading.",
+                    throwable.toString());
+        }
+    }
+
+    /**
+     * Resolves an alien world before Bukkit has created it. This is used by external world managers
+     * such as Multiverse when they ask Bukkit for Galactifun's generator by id.
+     */
+    @Nullable
+    public static AlienWorld findAlienWorld(@Nullable String worldName, @Nullable String generatorId) {
+        String id = generatorId;
+        if (id != null) {
+            int colon = id.indexOf(':');
+            if (colon >= 0 && colon + 1 < id.length()) {
+                id = id.substring(colon + 1);
+            }
+            id = id.toLowerCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+        }
+
+        for (AlienWorld world : ALIEN_WORLDS) {
+            if (id != null && world.id().equalsIgnoreCase(id)) {
+                return world;
+            }
+            if (worldName != null && ("world_galactifun_" + world.id()).equalsIgnoreCase(worldName)) {
+                return world;
+            }
+        }
+        return null;
+    }
 }
