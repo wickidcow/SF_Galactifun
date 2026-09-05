@@ -53,7 +53,8 @@ public final class DoctorCommand extends SubCommand {
             warnings.add("rockets.launch-msgs should contain at least four entries.");
         }
         if (integrations.isFolia()) {
-            warnings.add("Folia was detected; Galactifun Folia support is still experimental.");
+            warnings.add("Folia was detected, but Galactifun 1.0 is not release-supported on Folia. "
+                    + "Planet world lifecycle and region-thread scheduling still require a dedicated Folia port.");
         }
 
         sender.sendMessage(ChatColor.GOLD + "----- Galactifun Legacy Doctor -----");
@@ -70,7 +71,8 @@ public final class DoctorCommand extends SubCommand {
                 + ", MV-Portals=" + yesNo(integrations.isMultiversePortals())
                 + ", BentoBox=" + yesNo(integrations.isBentoBox())
                 + ", Geyser=" + yesNo(integrations.isGeyser())
-                + ", Floodgate=" + yesNo(integrations.isFloodgate()));
+                + ", Floodgate=" + yesNo(integrations.isFloodgate())
+                + ", Folia=" + yesNo(integrations.isFolia()));
 
         if (integrations.isMultiverseCore()) {
             sender.sendMessage(ChatColor.YELLOW + "Multiverse travel policy: " + ChatColor.WHITE
