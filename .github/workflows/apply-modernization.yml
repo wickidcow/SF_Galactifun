@@ -1,0 +1,34 @@
+name: Apply Galactifun Modernization
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/modernization.patch.gz.b64'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Apply modernization patch
+        shell: bash
+        run: |
+          base64 --decode .github/modernization.patch.gz.b64 | gzip -dc > /tmp/modernization.patch
+          patch --batch --forward -p1 < /tmp/modernization.patch
+          git diff --check
+      - name: Commit modernized source
+        shell: bash
+        run: |
+          git config user.name 'wickidcow'
+          git config user.email 'jaywago@gmail.com'
+          git add src
+          git diff --cached --quiet && exit 0
+          git commit -m 'Modernize Galactifun for Paper 26.2 APIs'
+          git push origin HEAD:master
