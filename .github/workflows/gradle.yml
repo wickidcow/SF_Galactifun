@@ -1,27 +1,95 @@
-name: Java CI
+name: Build Galactifun Legacy
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Checkout Galactifun
+        uses: actions/checkout@v6
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Checkout Slimefun Legacy
+        uses: actions/checkout@v6
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          repository: wickidcow/Slimefun-Legacy
+          ref: master
+          path: .ci/slimefun-legacy
 
-      - name: Setup Gradle
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build with Gradle
-        run: ./gradlew build --no-daemon
+      - name: Build Slimefun Legacy API
+        working-directory: .ci/slimefun-legacy
+        run: |
+          chmod +x gradlew
+          ./gradlew clean build --no-daemon
+
+      - name: Locate Slimefun Legacy JAR
+        shell: bash
+        run: |
+          CORE_JAR="$(find .ci/slimefun-legacy/build/libs -maxdepth 1 -type f -name '*.jar' \
+            ! -name '*-sources.jar' ! -name '*-javadoc.jar' -printf '%s %p\n' \
+            | sort -nr | head -n 1 | cut -d' ' -f2-)"
+          test -n "$CORE_JAR"
+          test -f "$CORE_JAR"
+          echo "SLIMEFUN_CORE_JAR=$CORE_JAR" >> "$GITHUB_ENV"
+          echo "Compiling against: $CORE_JAR"
+
+      - name: Build Galactifun 1.0.1
+        run: |
+          chmod +x gradlew
+          ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR"
+
+      - name: Verify release artifact
+        shell: bash
+        run: |
+          JAR="build/libs/SF_Galactifun1.0.1.jar"
+          test -f "$JAR"
+
+          echo "Verifying plugin metadata"
+          unzip -p "$JAR" plugin.yml | tee /tmp/galactifun-plugin.yml
+          grep -F "name: Galactifun" /tmp/galactifun-plugin.yml
+          grep -F "version: '1.0.1'" /tmp/galactifun-plugin.yml
+          grep -F "api-version: '26.2'" /tmp/galactifun-plugin.yml
+          grep -F "  - Slimefun" /tmp/galactifun-plugin.yml
+          grep -F "  - Multiverse-Core" /tmp/galactifun-plugin.yml
+
+          echo "Verifying runtime compatibility class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/RuntimeCompatibility.class"
+
+          echo "Verifying Java 21 bytecode"
+          javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
+            | grep -F "major version: 65"
+
+          echo "Verifying Slimefun is not shaded into the addon"
+          if jar tf "$JAR" | grep -q '^io/github/thebusybiscuit/slimefun4/'; then
+            echo "Slimefun classes were unexpectedly bundled into Galactifun" >&2
+            exit 1
+          fi
+
+          sha256sum "$JAR"
+
+      - name: Upload SF_Galactifun1.0.1.jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: SF_Galactifun1.0.1
+          path: build/libs/SF_Galactifun1.0.1.jar
+          if-no-files-found: error
