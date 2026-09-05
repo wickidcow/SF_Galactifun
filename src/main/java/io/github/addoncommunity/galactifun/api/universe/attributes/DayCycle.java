@@ -2,7 +2,6 @@ package io.github.addoncommunity.galactifun.api.universe.attributes;
 
 import javax.annotation.Nonnull;
 
-
 import org.bukkit.GameRule;
 import org.bukkit.World;
 import org.apache.commons.lang3.Validate;
@@ -43,7 +42,7 @@ public final class DayCycle {
         return new DayCycle(days + hours / 24, hours % 24);
     }
 
-        @Nonnull
+    @Nonnull
     private final String description;
     private final long startTime;
     private final long perFiveSeconds;
@@ -87,20 +86,40 @@ public final class DayCycle {
     public void applyEffects(@Nonnull World world) {
         world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
         if (this.startTime != -1) {
-            world.setTime(this.startTime);
+            setTimeSafely(world, this.startTime);
         }
     }
 
     /**
-     * Apply time effects to world every 5 seconds
+     * Apply time effects to world every 5 seconds.
      */
     public void tick(@Nonnull World world) {
         if (this.perFiveSeconds != 0) {
-            world.setTime(world.getTime() + this.perFiveSeconds);
+            setTimeSafely(world, world.getTime() + this.perFiveSeconds);
         }
     }
 
+    /**
+     * Paper 26.x can expose custom/dimension worlds without a world clock. Calling setTime on one of
+     * those worlds throws IllegalArgumentException. Skip only that known clockless-world condition so
+     * the Galactifun world ticker cannot spam the server log every five seconds.
+     */
+    private static void setTimeSafely(@Nonnull World world, long time) {
+        try {
+            world.setTime(time);
+        } catch (IllegalArgumentException exception) {
+            String message = exception.getMessage();
+            if (message == null || !message.contains("without world clock")) {
+                throw exception;
+            }
+        }
+    }
 
-    public String description() { return this.description; }
-    public String getDescription() { return this.description; }
+    public String description() {
+        return this.description;
+    }
+
+    public String getDescription() {
+        return this.description;
+    }
 }
