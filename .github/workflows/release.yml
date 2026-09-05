@@ -21,12 +21,12 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
@@ -41,7 +41,7 @@ jobs:
             https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.45/Slimefun-Legacy4.1.45.jar \
             --output lib/Slimefun-Legacy.jar
 
-      - name: Build Shadow Jar
+      - name: Build Release JAR
         run: ./gradlew clean shadowJar --no-daemon
 
       - name: Create GitHub Release
