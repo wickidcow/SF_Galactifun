@@ -6,7 +6,6 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.generator.ChunkGenerator;
@@ -20,6 +19,7 @@ import io.github.addoncommunity.galactifun.base.BaseItems;
 import io.github.addoncommunity.galactifun.base.BaseMats;
 import io.github.addoncommunity.galactifun.base.BaseUniverse;
 import io.github.addoncommunity.galactifun.core.CoreItemGroup;
+import io.github.addoncommunity.galactifun.core.RuntimeCompatibility;
 import io.github.addoncommunity.galactifun.core.commands.AlienRemoveCommand;
 import io.github.addoncommunity.galactifun.core.commands.AlienSpawnCommand;
 import io.github.addoncommunity.galactifun.core.commands.EffectsCommand;
@@ -32,10 +32,6 @@ import io.github.addoncommunity.galactifun.core.managers.WorldManager;
 import io.github.mooy1.infinitylib.common.Scheduler;
 import io.github.mooy1.infinitylib.core.AbstractAddon;
 import io.github.mooy1.infinitylib.metrics.bukkit.Metrics;
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.libraries.paperlib.PaperLib;
-
 
 public final class Galactifun extends AbstractAddon {
 
@@ -78,38 +74,15 @@ public final class Galactifun extends AbstractAddon {
     protected void enable() {
         instance = this;
 
-        if (!isTest) {
-            if (!PaperLib.isPaper()) {
-                log(Level.SEVERE, "Galactifun only supports Paper and its forks (i.e. Airplane and Purpur)");
-                log(Level.SEVERE, "Please use Paper or a fork of Paper");
-                shouldDisable = true;
-            }
-            if (Slimefun.getMinecraftVersion().isBefore(MinecraftVersion.MINECRAFT_1_17)) {
-                log(Level.SEVERE, "Galactifun only supports Minecraft 1.17 and above");
-                log(Level.SEVERE, "Please use Minecraft 1.17 or above");
-                shouldDisable = true;
-            }
-            if (Bukkit.getPluginManager().isPluginEnabled("ClayTech")) {
-                log(Level.SEVERE, "Galactifun will not work properly with ClayTech");
-                log(Level.SEVERE, "Please disable ClayTech");
-                shouldDisable = true;
-            }
-
-            if (Bukkit.getPluginManager().isPluginEnabled("ChatColor2")) {
-                log(Level.SEVERE, "Galactifun will not work properly with ChatColor2");
-                log(Level.SEVERE, "Please disable ChatColor2");
-                shouldDisable = true;
-            }
-
-            if (shouldDisable) {
-                Bukkit.getPluginManager().disablePlugin(this);
-                return;
-            }
+        if (!isTest && !RuntimeCompatibility.preflight(this)) {
+            shouldDisable = true;
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
         }
 
         new Metrics(this, 11613);
 
-        // Auto updater removed for modern standalone builds
+        // Auto updater removed for modern standalone builds.
 
         this.alienManager = new AlienManager(this);
         this.worldManager = new WorldManager(this);
@@ -123,16 +96,21 @@ public final class Galactifun extends AbstractAddon {
         BaseMats.setup();
         BaseItems.setup(this);
 
-        // log after startup
-        Scheduler.run(() -> log(Level.INFO,
-                "################# Galactifun " + getPluginVersion() + " #################",
-                "",
-                "Galactifun is open source, you can contribute or report bugs at: ",
-                getBugTrackerURL(),
-                "Join the Slimefun Addon Community Discord: discord.gg/SqD3gg5SAU",
-                "",
-                "###################################################"
-        ));
+        // Verify the fully initialized world registry, then log the normal startup banner.
+        Scheduler.run(() -> {
+            if (!isTest) {
+                RuntimeCompatibility.postStartup(this);
+            }
+            log(Level.INFO,
+                    "################# Galactifun " + getPluginVersion() + " #################",
+                    "",
+                    "Galactifun is open source, you can contribute or report bugs at:",
+                    getBugTrackerURL(),
+                    "Maintained Slimefun Legacy fork: https://github.com/wickidcow/SF_Galactifun",
+                    "",
+                    "###################################################"
+            );
+        });
 
         getAddonCommand()
                 .addSub(new GalactiportCommand())
@@ -145,18 +123,23 @@ public final class Galactifun extends AbstractAddon {
 
     @Override
     protected void disable() {
-        if (shouldDisable) return;
+        if (shouldDisable) {
+            instance = null;
+            return;
+        }
 
-        this.alienManager.onDisable();
+        if (this.alienManager != null) {
+            this.alienManager.onDisable();
+        }
 
-        // Do this last
+        // Do this last.
         instance = null;
     }
 
     @Override
     public void load() {
         if (!isTest) {
-            // Default to not logging world settings
+            // Preserve the historical default of suppressing verbose world settings output.
             Bukkit.spigot().getConfig().set("world-settings.default.verbose", false);
         }
     }
@@ -164,15 +147,28 @@ public final class Galactifun extends AbstractAddon {
     @Nullable
     @Override
     public ChunkGenerator getDefaultWorldGenerator(@Nonnull String worldName, @Nullable String id) {
-        World world = Bukkit.getWorld(worldName);
-        if (world == null) return null;
+        if (this.worldManager == null) {
+            return null;
+        }
 
-        PlanetaryWorld planetaryWorld = this.worldManager.getWorld(world);
-        if (planetaryWorld instanceof AlienWorld) {
-            return planetaryWorld.world().getGenerator();
+        World world = Bukkit.getWorld(worldName);
+        if (world != null) {
+            PlanetaryWorld planetaryWorld = this.worldManager.getWorld(world);
+            if (planetaryWorld instanceof AlienWorld alienWorld) {
+                return alienWorld.world().getGenerator();
+            }
+        }
+
+        // Multiverse and other world managers can request a generator by name before Bukkit resolves the world.
+        // Fall back to the Galactifun registry without hard-linking to an external world-management API.
+        for (PlanetaryWorld planetaryWorld : this.worldManager.spaceWorlds()) {
+            if (planetaryWorld instanceof AlienWorld alienWorld
+                    && alienWorld.world() != null
+                    && alienWorld.world().getName().equals(worldName)) {
+                return alienWorld.world().getGenerator();
+            }
         }
 
         return null;
     }
-
 }
