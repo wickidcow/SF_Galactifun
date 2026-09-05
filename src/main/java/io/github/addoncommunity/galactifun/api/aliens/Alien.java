@@ -6,7 +6,6 @@ import java.util.Random;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
-
 import org.apache.commons.lang3.Validate;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -15,6 +14,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -63,7 +63,7 @@ public class Alien<T extends Mob> {
         T mob = world.spawn(loc, this.clazz);
 
         PersistentDataAPI.setString(mob, this.alienManager.key(), this.id);
-        this.alienManager.addAlien(mob.getUniqueId());
+        this.alienManager.addAlien(mob);
 
         Objects.requireNonNull(mob.getAttribute(Attribute.MAX_HEALTH)).setBaseValue(this.maxHealth);
         mob.setHealth(this.maxHealth);
@@ -87,6 +87,13 @@ public class Alien<T extends Mob> {
         return this.alienManager != null;
     }
 
+    /**
+     * Legacy world-wide spawn routine retained for API compatibility.
+     *
+     * @deprecated Galactifun now uses bounded player-local attempts to avoid work proportional to
+     * every loaded chunk in a planet world.
+     */
+    @Deprecated
     public final int attemptSpawn(Random rand, World world) {
         int spawned = 0;
         for (Chunk chunk : world.getLoadedChunks()) {
@@ -98,13 +105,42 @@ public class Alien<T extends Mob> {
             int z = rand.nextInt(16) + (chunk.getZ() << 4);
             Block b = world.getHighestBlockAt(x, z).getRelative(0, 1, 0);
 
-            // currently doesn't allow for aquatic aliens
             if (b.getType().isAir() && canSpawnInLightLevel(b.getLightLevel())) {
                 spawn(b.getLocation().add(0, getSpawnHeightOffset(), 0), world);
                 spawned++;
             }
         }
         return spawned;
+    }
+
+    /**
+     * Performs one bounded spawn attempt in an already-loaded chunk near a player.
+     * This never loads a new chunk and keeps alien spawning independent of total loaded-chunk count.
+     */
+    public final int attemptSpawn(@Nonnull Random rand, @Nonnull Player player, int radiusChunks) {
+        if (rand.nextDouble() * 100 > this.spawnChance) {
+            return 0;
+        }
+
+        World world = player.getWorld();
+        Chunk center = player.getChunk();
+        int radius = Math.max(0, radiusChunks);
+        int chunkX = center.getX() + (radius == 0 ? 0 : rand.nextInt(radius * 2 + 1) - radius);
+        int chunkZ = center.getZ() + (radius == 0 ? 0 : rand.nextInt(radius * 2 + 1) - radius);
+
+        if (!world.isChunkLoaded(chunkX, chunkZ)) {
+            return 0;
+        }
+
+        int x = (chunkX << 4) + rand.nextInt(16);
+        int z = (chunkZ << 4) + rand.nextInt(16);
+        Block block = world.getHighestBlockAt(x, z).getRelative(0, 1, 0);
+        if (!block.getType().isAir() || !canSpawnInLightLevel(block.getLightLevel())) {
+            return 0;
+        }
+
+        spawn(block.getLocation().add(0, getSpawnHeightOffset(), 0), world);
+        return 1;
     }
 
     public final void onEntityTick(@Nonnull LivingEntity mob) {
@@ -158,7 +194,6 @@ public class Alien<T extends Mob> {
         return this.id.hashCode();
     }
 
-
     public String id() { return this.id; }
     public String getId() { return this.id; }
     public String name() { return this.name; }
@@ -167,5 +202,4 @@ public class Alien<T extends Mob> {
     public double getMaxHealth() { return this.maxHealth; }
     public double spawnChance() { return this.spawnChance; }
     public double getSpawnChance() { return this.spawnChance; }
-
 }
