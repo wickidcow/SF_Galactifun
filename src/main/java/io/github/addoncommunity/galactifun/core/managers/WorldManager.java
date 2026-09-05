@@ -443,7 +443,7 @@ public final class WorldManager implements Listener {
         if (item != null && !removePlacedBlock(block)) {
             event.setDropItems(false);
             List<ItemStack> drops = new ArrayList<>();
-            ItemStack itemStack = item.item().clone();
+            ItemStack itemStack = item.clone();
             drops.add(itemStack);
             item.getItem().callItemHandler(BlockBreakHandler.class,
                     handler -> handler.onPlayerBreak(event, itemStack, drops));
@@ -477,7 +477,7 @@ public final class WorldManager implements Listener {
                 SlimefunItemStack item = world.getMappedItem(block);
                 if (item != null && !removePlacedBlock(block)) {
                     blocks.remove();
-                    bukkitWorld.dropItemNaturally(block.getLocation().add(0.5, 0, 0.5), item.item().clone());
+                    bukkitWorld.dropItemNaturally(block.getLocation().add(0.5, 0, 0.5), item.clone());
                     Scheduler.run(() -> block.setType(Material.AIR));
                 }
             }
