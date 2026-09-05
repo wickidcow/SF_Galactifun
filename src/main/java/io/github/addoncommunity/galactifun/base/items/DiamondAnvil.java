@@ -19,14 +19,14 @@ public final class DiamondAnvil extends AContainer {
 
     public static final MachineRecipeType TYPE = new MachineRecipeType(
             BaseItems.DIAMOND_ANVIL.getItemId().toLowerCase(Locale.ROOT),
-            BaseItems.DIAMOND_ANVIL.item()
+            BaseItems.DIAMOND_ANVIL.clone()
     );
 
     public DiamondAnvil(SlimefunItemStack item, ItemStack[] recipe) {
         super(CoreItemGroup.MACHINES, item, RecipeType.ENHANCED_CRAFTING_TABLE, recipe);
-        TYPE.sendRecipesTo((ing, res) ->{
+        TYPE.sendRecipesTo((ing, res) -> {
             ItemStack[] itemRecipe = Arrays.copyOf(ing, 2);
-            if (itemRecipe[1] == null){
+            if (itemRecipe[1] == null) {
                 itemRecipe = Arrays.copyOf(itemRecipe, 1);
             }
             this.registerRecipe(10, itemRecipe, new ItemStack[] { res });
@@ -43,5 +43,4 @@ public final class DiamondAnvil extends AContainer {
     public String getMachineIdentifier() {
         return BaseItems.DIAMOND_ANVIL.getItemId().toLowerCase(Locale.ROOT);
     }
-
 }
