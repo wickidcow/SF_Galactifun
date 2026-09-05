@@ -19,11 +19,11 @@ jobs:
       - name: Checkout Galactifun
         uses: actions/checkout@v6
 
-      - name: Checkout Slimefun Legacy
+      - name: Checkout Slimefun Legacy 4.1.45
         uses: actions/checkout@v6
         with:
           repository: wickidcow/Slimefun-Legacy
-          ref: master
+          ref: v4.1.45
           path: .ci/slimefun-legacy
 
       - name: Set up Java 25
@@ -36,7 +36,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Slimefun Legacy API
+      - name: Build Slimefun Legacy 4.1.45 API
         working-directory: .ci/slimefun-legacy
         run: |
           chmod +x gradlew
@@ -51,7 +51,7 @@ jobs:
           test -n "$CORE_JAR"
           test -f "$CORE_JAR"
           echo "SLIMEFUN_CORE_JAR=$CORE_JAR" >> "$GITHUB_ENV"
-          echo "Compiling against: $CORE_JAR"
+          echo "Compiling against released Legacy tag v4.1.45: $CORE_JAR"
 
       - name: Build Galactifun 1.0.1
         run: |
@@ -87,7 +87,7 @@ jobs:
 
           sha256sum "$JAR"
 
-      - name: Upload SF_Glactifun1.0.1.jar
+      - name: Upload Galactifun JAR
         uses: actions/upload-artifact@v7
         with:
           name: SF_Glactifun1.0.1
