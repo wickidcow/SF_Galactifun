@@ -13,19 +13,27 @@ repositories {
 }
 
 group = "io.github.addoncommunity.galactifun"
-version = "1.21.0"
-description = "Galactifun"
+version = "1.0.1"
+description = "Galactifun Legacy - space exploration and planetary gameplay for Slimefun Legacy"
+
+val slimefunCoreJar = providers.gradleProperty("slimefunCoreJar").orNull
 
 dependencies {
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("commons-codec:commons-codec:1.17.1")
 
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
-    compileOnly("maven.modrinth:slimefuncore:PEuZoZh4")
+    compileOnly("io.papermc.paper:paper-api:26.2.build.+")
+    if (slimefunCoreJar != null) {
+        compileOnly(files(slimefunCoreJar))
+    } else {
+        // Developer fallback. CI and release builds pass the exact Slimefun Legacy JAR.
+        compileOnly("maven.modrinth:slimefuncore:PEuZoZh4")
+    }
     compileOnly("com.google.code.findbugs:jsr305:3.0.2")
 }
 
 java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(25))
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
 }
@@ -48,7 +56,7 @@ tasks.processResources {
 
 tasks.shadowJar {
     archiveClassifier.set("")
-    archiveFileName.set("Galactifun-${project.version}.jar")
+    archiveFileName.set("SF_Galactifun1.0.1.jar")
     relocate("io.github.mooy1.infinitylib", "io.github.addoncommunity.galactifun.infinitylib")
     relocate("org.apache.commons.lang3", "io.github.addoncommunity.galactifun.commons.lang3")
     relocate("org.apache.commons.codec", "io.github.addoncommunity.galactifun.commons.codec")
@@ -59,6 +67,6 @@ tasks.build {
 }
 
 tasks.runServer {
-    minecraftVersion("1.21.4")
+    minecraftVersion("26.2")
     pluginJars(tasks.shadowJar.flatMap { it.archiveFile })
 }
