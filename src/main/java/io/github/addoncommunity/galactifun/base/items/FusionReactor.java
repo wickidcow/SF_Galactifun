@@ -33,18 +33,18 @@ public final class FusionReactor extends Reactor {
     @Nonnull
     @Override
     public ItemStack getFuelIcon() {
-        return BaseMats.FUSION_PELLET.item();
+        return BaseMats.FUSION_PELLET.clone();
     }
 
     @Nonnull
     @Override
     public ItemStack getProgressBar() {
-        return SlimefunItems.LAVA_CRYSTAL.item();
+        return SlimefunItems.LAVA_CRYSTAL.clone();
     }
 
     @Override
     public int getEnergyProduction() {
-        return 32_768; // 65,536 J/s
+        return 32_768;
     }
 
     @Override
@@ -56,5 +56,4 @@ public final class FusionReactor extends Reactor {
     public int getCapacity() {
         return 65_536;
     }
-
 }
