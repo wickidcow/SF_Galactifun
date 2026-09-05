@@ -6,8 +6,7 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
-
-import org.bukkit.GameRule;
+import org.bukkit.GameRules;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
@@ -76,7 +75,7 @@ public final class Atmosphere {
     }
 
     public void applyEffects(@Nonnull World world) {
-        world.setGameRule(GameRule.DO_WEATHER_CYCLE, this.weatherEnabled);
+        world.setGameRule(GameRules.ADVANCE_WEATHER, this.weatherEnabled);
         world.setStorm(this.storming);
         if (this.storming) {
             world.setWeatherDuration(Integer.MAX_VALUE);
@@ -85,7 +84,11 @@ public final class Atmosphere {
         if (this.thundering) {
             world.setThunderDuration(Integer.MAX_VALUE);
         }
-        world.setGameRule(GameRule.DO_FIRE_TICK, this.flammable);
+
+        int fireSpreadRadius = this.flammable
+                ? GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER.getDefaultValue()
+                : 0;
+        world.setGameRule(GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER, fireSpreadRadius);
     }
 
     public void applyEffects(@Nonnull Player player) {
@@ -135,7 +138,6 @@ public final class Atmosphere {
         return builder;
     }
 
-
     public double pressure() { return this.pressure; }
     public double getPressure() { return this.pressure; }
     public World.Environment environment() { return this.environment; }
@@ -157,6 +159,4 @@ public final class Atmosphere {
     public Map<Gas, Double> composition() { return this.composition; }
     public RandomizedSet<Gas> getWeightedCompositionSet() { return this.weightedCompositionSet; }
     public RandomizedSet<Gas> weightedCompositionSet() { return this.weightedCompositionSet; }
-
-
 }
