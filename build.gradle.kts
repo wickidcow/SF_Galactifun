@@ -1,45 +1,69 @@
 plugins {
     `java-library`
-    id("com.gradleup.shadow") version "8.3.6"
-    id("xyz.jpenilla.run-paper") version "3.0.2"
+    id("com.gradleup.shadow") version "9.3.2"
+}
+
+group = "com.wickidcow.galactifun"
+version = "1.0.0"
+description = "Galactifun Legacy"
+
+val slimefunCoreJarPath = providers.gradleProperty("slimefunCoreJar")
+    .orElse(providers.environmentVariable("SLIMEFUN_CORE_JAR"))
+    .orElse(providers.gradleProperty("slimefunLegacyJar"))
+    .orElse(providers.environmentVariable("SLIMEFUN_LEGACY_JAR"))
+    .orElse(providers.environmentVariable("SLIMEFUN_COMPATIBILITY_JAR"))
+    .orElse(layout.projectDirectory.file("lib/Slimefun-Legacy.jar").asFile.absolutePath)
+val slimefunCoreJar = file(slimefunCoreJarPath.get())
+
+if (!slimefunCoreJar.isFile) {
+    throw GradleException(
+        "Slimefun Legacy JAR not found at '${slimefunCoreJar.absolutePath}'. " +
+            "Pass -PslimefunCoreJar=/path/to/Slimefun-Legacy.jar or set SLIMEFUN_CORE_JAR."
+    )
 }
 
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
-    maven("https://api.modrinth.com/maven")
     maven("https://jitpack.io")
     maven("https://repo.codemc.org/repository/maven-public")
 }
 
-group = "io.github.addoncommunity.galactifun"
-version = "1.21.0"
-description = "Galactifun"
+configurations.configureEach {
+    exclude(group = "com.github.SlimefunGuguProject", module = "Slimefun4")
+    exclude(group = "com.github.slimefun", module = "Slimefun4")
+    exclude(group = "io.github.thebusybiscuit", module = "Slimefun4")
+}
 
 dependencies {
-    implementation("org.apache.commons:commons-lang3:3.17.0")
-    implementation("commons-codec:commons-codec:1.17.1")
+    implementation("org.apache.commons:commons-lang3:3.18.0")
+    implementation("commons-codec:commons-codec:1.19.0")
 
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
-    compileOnly("maven.modrinth:slimefuncore:PEuZoZh4")
+    // Paper 26.2 / Minecraft 1.21.11 is the primary runtime target.
+    compileOnly("io.papermc.paper:paper-api:26.2.build.+")
+
+    // Compile against the exact Slimefun Legacy JAR supplied by CI or the developer.
+    compileOnly(files(slimefunCoreJar))
     compileOnly("com.google.code.findbugs:jsr305:3.0.2")
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+    withSourcesJar()
 }
 
-tasks.withType<JavaCompile> {
+tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
-    options.release.set(21)
+    options.release.set(25)
+    options.compilerArgs.add("-Xlint:-removal")
 }
 
 tasks.processResources {
-    val props = mapOf(
-        "version" to project.version,
-        "project" to mapOf("version" to project.version)
-    )
+    val props = mapOf("version" to project.version)
     inputs.properties(props)
     filesMatching("plugin.yml") {
         expand(props)
@@ -48,17 +72,19 @@ tasks.processResources {
 
 tasks.shadowJar {
     archiveClassifier.set("")
-    archiveFileName.set("Galactifun-${project.version}.jar")
+    archiveFileName.set("SF_Galactifun1.0.0.jar")
     relocate("io.github.mooy1.infinitylib", "io.github.addoncommunity.galactifun.infinitylib")
     relocate("org.apache.commons.lang3", "io.github.addoncommunity.galactifun.commons.lang3")
     relocate("org.apache.commons.codec", "io.github.addoncommunity.galactifun.commons.codec")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.jar {
+    enabled = false
 }
 
 tasks.build {
     dependsOn(tasks.shadowJar)
 }
 
-tasks.runServer {
-    minecraftVersion("1.21.4")
-    pluginJars(tasks.shadowJar.flatMap { it.archiveFile })
-}
+defaultTasks("clean", "build")
