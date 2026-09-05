@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import javax.annotation.Nonnull;
@@ -39,10 +38,8 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
-import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import net.kyori.adventure.text.Component;
@@ -105,9 +102,16 @@ public final class StargateController extends SlimefunItem implements Listener {
             @Override
             @ParametersAreNonnullByDefault
             public void onPlayerBreak(BlockBreakEvent event, ItemStack item, List<ItemStack> drops) {
-                if (Boolean.parseBoolean(BlockStorage.getLocationInfo(event.getBlock().getLocation(), "locked"))) {
+                Block block = event.getBlock();
+                if (Boolean.parseBoolean(BlockStorage.getLocationInfo(block.getLocation(), "locked"))) {
                     event.setCancelled(true);
                     event.getPlayer().sendMessage(ChatColor.RED + "Deactivate the Stargate before destroying it");
+                    return;
+                }
+
+                String address = BlockStorage.getLocationInfo(block.getLocation(), "gfsgAddress");
+                if (address != null) {
+                    Galactifun.stargates().unregister(address, block.getLocation());
                 }
             }
         });
@@ -163,6 +167,8 @@ public final class StargateController extends SlimefunItem implements Listener {
         }
 
         event.cancel();
+        ensureAddressRegistered(block);
+
         if (getPortalBlocks(block).isEmpty()) {
             for (ComponentPosition position : PORTAL_POSITIONS) {
                 Block portal = position.getBlock(block);
@@ -193,20 +199,8 @@ public final class StargateController extends SlimefunItem implements Listener {
             menu.addItem(i, MenuBlock.BACKGROUND_ITEM, ChestMenuUtils.getEmptyClickHandler());
         }
 
+        String address = ensureAddressRegistered(block);
         Location location = block.getLocation();
-        String address = BlockStorage.getLocationInfo(location, "gfsgAddress");
-        if (address == null) {
-            String locationString = String.format(
-                    "%s-%d-%d-%d",
-                    block.getWorld().getName(),
-                    location.getBlockX(),
-                    location.getBlockY(),
-                    location.getBlockZ()
-            );
-            address = Integer.toHexString(locationString.hashCode());
-            BlockStorage.addBlockInfo(block, "gfsgAddress", address);
-        }
-
         String destination = BlockStorage.getLocationInfo(location, "destination");
         destination = destination == null ? "" : destination;
 
@@ -254,19 +248,28 @@ public final class StargateController extends SlimefunItem implements Listener {
         return menu;
     }
 
+    private static String ensureAddressRegistered(Block block) {
+        Location location = block.getLocation();
+        String address = BlockStorage.getLocationInfo(location, "gfsgAddress");
+        if (address == null) {
+            String locationString = String.format(
+                    "%s-%d-%d-%d",
+                    block.getWorld().getName(),
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ()
+            );
+            address = Integer.toHexString(locationString.hashCode());
+            BlockStorage.addBlockInfo(block, "gfsgAddress", address);
+        }
+        Galactifun.stargates().register(address, location);
+        return address;
+    }
+
     private static void setDestination(String destination, Block block, Player player) {
-        Location target;
-        worldLoop: {
-            for (BlockStorage storage : Slimefun.getRegistry().getWorlds().values()) {
-                for (Map.Entry<Location, Config> configEntry : storage.getRawStorage().entrySet()) {
-                    String blockAddress = configEntry.getValue().getString("gfsgAddress");
-                    if (blockAddress != null && blockAddress.equals(destination)) {
-                        target = configEntry.getKey();
-                        break worldLoop;
-                    }
-                }
-            }
-            player.sendMessage(ChatColor.RED + "No destination found!");
+        Location target = Galactifun.stargates().find(destination);
+        if (target == null || target.getWorld() == null) {
+            player.sendMessage(ChatColor.RED + "No destination found! The target gate may need to be opened once to migrate its address.");
             return;
         }
 
