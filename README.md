@@ -69,8 +69,12 @@ Stargate addresses are now stored in Galactifun's own persistent `stargates.yml`
 
 - oxygen checks run only against players in relevant Galactifun worlds;
 - world/alien simulation cadence is configurable;
+- alien spawning is bounded by active players instead of scanning every loaded chunk for every species;
+- loaded Galactifun aliens are indexed by planet, removing the old full-world living-entity count scan;
 - rocket passenger lookup is localized;
 - world reload tracking no longer depends only on live `World` object identity.
+
+By default, each active player gets six alien spawn attempts per planet simulation tick within a two-chunk radius, and only already-loaded chunks are inspected. Both values are configurable under `aliens:`.
 
 ---
 
@@ -128,6 +132,11 @@ worlds:
   earth-name: world
   create-missing-earth: false
   allow-nether-portals: false
+
+aliens:
+  max-per-player: 8
+  spawn-attempts-per-player: 6
+  spawn-radius-chunks: 2
 
 integrations:
   multiverse:
