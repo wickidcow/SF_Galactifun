@@ -61,7 +61,7 @@ jobs:
       - name: Verify release artifact
         shell: bash
         run: |
-          JAR="build/libs/SF_Galactifun1.0.1.jar"
+          JAR="build/libs/SF_Glactifun1.0.1.jar"
           test -f "$JAR"
 
           echo "Verifying plugin metadata"
@@ -87,9 +87,9 @@ jobs:
 
           sha256sum "$JAR"
 
-      - name: Upload SF_Galactifun1.0.1.jar
+      - name: Upload SF_Glactifun1.0.1.jar
         uses: actions/upload-artifact@v7
         with:
-          name: SF_Galactifun1.0.1
-          path: build/libs/SF_Galactifun1.0.1.jar
+          name: SF_Glactifun1.0.1
+          path: build/libs/SF_Glactifun1.0.1.jar
           if-no-files-found: error
