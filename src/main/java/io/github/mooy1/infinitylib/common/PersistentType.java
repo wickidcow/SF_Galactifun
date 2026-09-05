@@ -232,7 +232,12 @@ public final class PersistentType<T, Z> implements PersistentDataType<T, Z> {
                 if (length < 0 || length > input.available()) {
                     break;
                 }
-                values.add(new String(input.readNBytes(length), StandardCharsets.UTF_8));
+                byte[] encoded = new byte[length];
+                int read = input.read(encoded, 0, length);
+                if (read != length) {
+                    break;
+                }
+                values.add(new String(encoded, StandardCharsets.UTF_8));
             }
             return values;
         }
