@@ -127,8 +127,16 @@ public final class ForcefieldGenerator extends SlimefunItem implements EnergyNet
     }
 
     @Override
+    public long getCapacityLong() {
+        return 256L;
+    }
+
+    /** Slimefun Legacy 4.1.45 compatibility bridge. */
+    @Deprecated
+    @SuppressWarnings("deprecation")
+    @Override
     public int getCapacity() {
-        return 256;
+        return (int) getCapacityLong();
     }
 
 }

@@ -40,6 +40,7 @@ import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 
+@SuppressWarnings("deprecation") // Slimefun Legacy 4.1.45 menu handler compatibility boundary.
 public abstract class ProtectingBlock extends MenuBlock implements EnergyNetComponent, HologramOwner {
 
     protected static final String PROTECTING = "protecting";
@@ -104,7 +105,7 @@ public abstract class ProtectingBlock extends MenuBlock implements EnergyNetComp
 
     private void uniqueTick() {
         //noinspection deprecation
-        Galactifun.protectionManager().clearProtectedBlocks();
+        Galactifun.protectionManager().resetProtectedBlocks();
         for (BlockPosition l : new HashSet<>(allBlocks)) {
             updateProtections(l);
         }

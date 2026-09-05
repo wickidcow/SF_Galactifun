@@ -53,8 +53,16 @@ public final class FusionReactor extends Reactor {
     }
 
     @Override
+    public long getCapacityLong() {
+        return 65_536L;
+    }
+
+    /** Slimefun Legacy 4.1.45 compatibility bridge. */
+    @Deprecated
+    @SuppressWarnings("deprecation")
+    @Override
     public int getCapacity() {
-        return 65_536;
+        return (int) getCapacityLong();
     }
 
 }

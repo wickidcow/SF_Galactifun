@@ -25,8 +25,8 @@ public final class SubGroup extends ItemGroup {
     }
 
     @Override
-    public boolean isHidden(Player p) {
-        return true;
+    public boolean isVisible(Player p) {
+        return false;
     }
 
 }

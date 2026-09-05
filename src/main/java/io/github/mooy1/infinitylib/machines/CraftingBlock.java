@@ -26,6 +26,7 @@ import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import me.mrCookieSlime.Slimefun.api.inventory.DirtyChestMenu;
 
 @ParametersAreNonnullByDefault
+@SuppressWarnings("deprecation") // Slimefun Legacy 4.1.45 menu handler compatibility boundary.
 public class CraftingBlock extends MenuBlock {
 
     public static final ItemStack CLICK_TO_CRAFT = new CustomItemStack(Material.LIME_STAINED_GLASS_PANE, "&aClick to craft!");

@@ -67,8 +67,16 @@ public abstract class AbstractMachineBlock extends TickingMenuBlock implements E
     protected abstract int getStatusSlot();
 
     @Override
-    public final int getCapacity() {
+    public final long getCapacityLong() {
         return energyCapacity;
+    }
+
+    /** Slimefun Legacy 4.1.45 compatibility bridge. Modern energy code uses {@link #getCapacityLong()}. */
+    @Deprecated
+    @SuppressWarnings("deprecation")
+    @Override
+    public final int getCapacity() {
+        return (int) Math.min(Integer.MAX_VALUE, getCapacityLong());
     }
 
     @Nonnull

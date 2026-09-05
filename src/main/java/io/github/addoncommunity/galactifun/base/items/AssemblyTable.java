@@ -28,6 +28,7 @@ import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 
 @ParametersAreNonnullByDefault
+@SuppressWarnings("deprecation") // Slimefun Legacy 4.1.45 menu handler compatibility boundary.
 public final class AssemblyTable extends CraftingBlock implements EnergyNetComponent {
 
     public static final int[] INPUT_SLOTS = {
@@ -106,8 +107,16 @@ public final class AssemblyTable extends CraftingBlock implements EnergyNetCompo
     }
 
     @Override
-    public int getCapacity() {
+    public long getCapacityLong() {
         return this.energy;
+    }
+
+    /** Slimefun Legacy 4.1.45 compatibility bridge. */
+    @Deprecated
+    @SuppressWarnings("deprecation")
+    @Override
+    public int getCapacity() {
+        return (int) Math.min(Integer.MAX_VALUE, getCapacityLong());
     }
 
 }

@@ -17,6 +17,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
  *
  * @author Mooy1
  */
+@SuppressWarnings("deprecation") // Slimefun Legacy 4.1.45 menu handler compatibility boundary.
 public final class GalacticItemGroup extends FlexItemGroup {
 
     public GalacticItemGroup(NamespacedKey key, ItemStack item) {

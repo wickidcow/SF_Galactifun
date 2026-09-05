@@ -35,12 +35,8 @@ public final class ProtectionManager {
         this.protectedBlocks.computeIfAbsent(pos, k -> new HashMap<>()).merge(effect, level, Integer::sum);
     }
 
-    /**
-     * @deprecated for internal use only
-     */
-    @Deprecated
-    @SuppressWarnings("DeprecatedIsStillUsed")
-    public void clearProtectedBlocks() {
+    /** Clears the cached atmospheric protection map before the next protection scan. */
+    public void resetProtectedBlocks() {
         this.protectedBlocks.clear();
     }
 
@@ -74,12 +70,8 @@ public final class ProtectionManager {
         return this.oxygen.contains(new BlockPosition(l));
     }
 
-    /**
-     * @deprecated for internal use only
-     */
-    @Deprecated
-    @SuppressWarnings("DeprecatedIsStillUsed")
-    public void clearOxygenBlocks() {
+    /** Clears the cached oxygen-protected positions before the next sealer scan. */
+    public void resetOxygenBlocks() {
         this.oxygen.clear();
     }
 }

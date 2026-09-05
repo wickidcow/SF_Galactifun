@@ -40,8 +40,16 @@ public final class IonDisperser extends ProtectingBlock {
     }
 
     @Override
+    public long getCapacityLong() {
+        return (long) this.getEnergyRequirement() * 2L;
+    }
+
+    /** Slimefun Legacy 4.1.45 compatibility bridge. */
+    @Deprecated
+    @SuppressWarnings("deprecation")
+    @Override
     public int getCapacity() {
-        return this.getEnergyRequirement() * 2;
+        return (int) Math.min(Integer.MAX_VALUE, getCapacityLong());
     }
 
 }

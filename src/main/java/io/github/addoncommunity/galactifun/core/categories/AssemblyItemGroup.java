@@ -28,6 +28,7 @@ import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
  * @author Seggan
  * @author Mooy1
  */
+@SuppressWarnings("deprecation") // Slimefun Legacy 4.1.45 ChestMenu compatibility boundary.
 public final class AssemblyItemGroup extends FlexItemGroup {
 
     private static final int[] SLOTS = new int[] {

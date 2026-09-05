@@ -52,6 +52,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 // TODO clean up if possible
+@SuppressWarnings("deprecation") // Slimefun Legacy 4.1.45 ChestMenu compatibility boundary.
 public final class StargateController extends SlimefunItem implements Listener {
 
     private static NamespacedKey stargateCooldownKey() {
@@ -349,7 +350,7 @@ public final class StargateController extends SlimefunItem implements Listener {
         }
 
         Block destBlock = b.getRelative(1, 0, 0);
-        if (destBlock.getType().isEmpty()) {
+        if (destBlock.getType().isAir()) {
             // Check if the player is teleporting to an alien world, and if so, allow them to
             AlienWorld world = Galactifun.worldManager().getAlienWorld(destBlock.getWorld());
             if (world != null) {

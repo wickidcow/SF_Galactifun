@@ -29,6 +29,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
  * @author Mooy1
  * @author Seggan
  */
+@SuppressWarnings("deprecation") // Slimefun Legacy 4.1.45 ChestMenu compatibility boundary.
 public final class WorldSelector {
 
     private static final int MAX_OBJECTS_PER_PAGE = 52;

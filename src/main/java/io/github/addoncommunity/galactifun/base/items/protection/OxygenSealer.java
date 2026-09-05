@@ -86,7 +86,7 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
 
     private void uniqueTick() {
         //noinspection deprecation
-        Galactifun.protectionManager().clearOxygenBlocks();
+        Galactifun.protectionManager().resetOxygenBlocks();
         for (BlockPosition l : allBlocks) {
             updateProtections(l);
         }
@@ -130,8 +130,16 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
     }
 
     @Override
+    public long getCapacityLong() {
+        return 256L;
+    }
+
+    /** Slimefun Legacy 4.1.45 compatibility bridge. */
+    @Deprecated
+    @SuppressWarnings("deprecation")
+    @Override
     public int getCapacity() {
-        return 256;
+        return (int) getCapacityLong();
     }
 
     private void updateProtections(BlockPosition pos) {
