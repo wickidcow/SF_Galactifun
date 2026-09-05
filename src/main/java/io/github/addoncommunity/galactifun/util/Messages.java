@@ -29,6 +29,15 @@ public final class Messages {
         return SECTION.deserialize(text);
     }
 
+    /**
+     * Serializes an Adventure component back to the section-sign format used by Galactifun's
+     * historical string API. Runtime code should prefer components directly; this exists only for
+     * source/binary compatibility with callers of older getters.
+     */
+    public static String legacySection(Component component) {
+        return SECTION.serialize(component);
+    }
+
     public static String plain(Component component) {
         return PLAIN.serialize(component);
     }
