@@ -7,7 +7,6 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 import org.apache.commons.lang3.Validate;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -33,31 +32,21 @@ import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.data.persistent.PersistentDataAPI;
 
 /**
- * Any world that can be travelled to by rockets or other means
- * this should only be used to allow worlds from vanilla or other plugins to be travelled to,
- * if you want to make your own world use {@link SimpleAlienWorld} or {@link AlienWorld}
+ * Any world that can be travelled to by rockets or other means.
  *
- * @author Mooy1
- * @see Earth
+ * <p>The legacy marker-backed world storage is deliberately retained for data compatibility. World
+ * instances can, however, be rebound after an external world manager unloads/reloads the world.</p>
  */
 public abstract class PlanetaryWorld extends PlanetaryObject {
 
     private static final NamespacedKey WORLD_STORAGE_KEY = Galactifun.createKey("world_storage");
 
     private World world;
-    public World world() { return this.world; }
-    public World getWorld() { return this.world; }
     private WorldManager worldManager;
     private SlimefunAddon addon;
-    public SlimefunAddon addon() { return this.addon; }
-    public SlimefunAddon getAddon() { return this.addon; }
     private Marker worldStorage;
 
     private final Set<GEOResource> resources = new HashSet<>();
-
-    public Set<GEOResource> resources() { return this.resources; }
-    public Set<GEOResource> getResources() { return this.resources; }
-
 
     public PlanetaryWorld(String name, PlanetaryType type, Orbit orbit, StarSystem orbiting, ItemStack baseItem,
                           DayCycle dayCycle, Atmosphere atmosphere, Gravity gravity) {
@@ -73,26 +62,41 @@ public abstract class PlanetaryWorld extends PlanetaryObject {
         if (isRegistered()) {
             throw new IllegalStateException("World already registered!");
         }
+
         this.worldManager = Galactifun.worldManager();
         this.addon = addon;
         this.world = loadWorld();
         if (this.world != null) {
+            initializeWorldStorage();
             this.worldManager.register(this);
-
-            Collection<Marker> markers = this.world.getNearbyEntitiesByType(
-                    Marker.class,
-                    new Location(this.world, 0, 0, 0),
-                    0.1,
-                    e -> e.getPersistentDataContainer().has(WORLD_STORAGE_KEY, PersistentDataType.STRING)
-            );
-
-            if (markers.isEmpty()) {
-                this.worldStorage = this.world.spawn(new Location(this.world, 0, 0, 0), Marker.class);
-                PersistentDataAPI.setString(this.worldStorage, WORLD_STORAGE_KEY, "");
-            } else {
-                this.worldStorage = Iterables.get(markers, 0);
-            }
         }
+    }
+
+    private void initializeWorldStorage() {
+        Collection<Marker> markers = this.world.getNearbyEntitiesByType(
+                Marker.class,
+                new Location(this.world, 0, 0, 0),
+                0.1,
+                entity -> entity.getPersistentDataContainer().has(WORLD_STORAGE_KEY, PersistentDataType.STRING)
+        );
+
+        if (markers.isEmpty()) {
+            this.worldStorage = this.world.spawn(new Location(this.world, 0, 0, 0), Marker.class);
+            PersistentDataAPI.setString(this.worldStorage, WORLD_STORAGE_KEY, "");
+        } else {
+            this.worldStorage = Iterables.get(markers, 0);
+        }
+    }
+
+    /**
+     * Rebinds this logical planet to a freshly loaded Bukkit World instance with the same name.
+     */
+    public final void rebindWorld(@Nonnull World world) {
+        if (this.world != null && !this.world.getName().equalsIgnoreCase(world.getName())) {
+            throw new IllegalArgumentException("Cannot rebind " + name() + " to unrelated world " + world.getName());
+        }
+        this.world = world;
+        initializeWorldStorage();
     }
 
     public final boolean isRegistered() {
@@ -104,8 +108,7 @@ public abstract class PlanetaryWorld extends PlanetaryObject {
 
     @Nonnull
     public final PersistentDataHolder worldStorage() {
-        // it will only be null if the world is disabled
-        Validate.notNull(this.worldStorage, "Attempted to get the world storage of disabled world " + name());
+        Validate.notNull(this.worldStorage, "Attempted to get world storage of disabled world " + name());
         return this.worldStorage;
     }
 
@@ -113,8 +116,31 @@ public abstract class PlanetaryWorld extends PlanetaryObject {
         return this.world != null;
     }
 
+    public final World world() {
+        return this.world;
+    }
+
+    public final World getWorld() {
+        return this.world;
+    }
+
+    public final SlimefunAddon addon() {
+        return this.addon;
+    }
+
+    public final SlimefunAddon getAddon() {
+        return this.addon;
+    }
+
+    public final Set<GEOResource> resources() {
+        return this.resources;
+    }
+
+    public final Set<GEOResource> getResources() {
+        return this.resources;
+    }
+
     public void registerGEOResource(GEOResource resource) {
         resources.add(resource);
     }
-
 }
