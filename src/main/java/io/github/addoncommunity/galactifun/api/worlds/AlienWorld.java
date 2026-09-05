@@ -1,7 +1,6 @@
 package io.github.addoncommunity.galactifun.api.worlds;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +19,6 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.BlockPopulator;
@@ -40,7 +38,6 @@ import io.github.addoncommunity.galactifun.api.universe.types.PlanetaryType;
 import io.github.addoncommunity.galactifun.api.worlds.populators.relics.FallenSatellitePopulator;
 import io.github.addoncommunity.galactifun.base.universe.earth.EarthOrbit;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 
 /**
  * Any alien world.
@@ -76,7 +73,6 @@ public abstract class AlienWorld extends PlanetaryWorld {
         Galactifun.log(Level.INFO, "Loading planet " + name());
         String worldName = "world_galactifun_" + this.id;
 
-        // Respect worlds already loaded by Multiverse or another compatible world manager.
         World world = Bukkit.getWorld(worldName);
         if (world == null) {
             world = new WorldCreator(worldName)
@@ -88,7 +84,6 @@ public abstract class AlienWorld extends PlanetaryWorld {
         Validate.notNull(world, "There was an error loading the world for " + worldName);
 
         if (world.getEnvironment() == World.Environment.THE_END) {
-            // Prevent an Ender Dragon/exit portal from becoming part of planet gameplay.
             world.getBlockAt(0, 0, 0).setType(Material.END_PORTAL);
             world.getBlockAt(0, 1, 0).setType(Material.BEDROCK);
             world.getBlockAt(1, 0, 0).setType(Material.BEDROCK);
@@ -220,6 +215,10 @@ public abstract class AlienWorld extends PlanetaryWorld {
         atmosphere().applyEffects(p);
     }
 
+    /**
+     * Runs bounded planet simulation work. Alien spawning is now proportional to active players,
+     * not to the number of loaded chunks in the world.
+     */
     public final void tickWorld() {
         World world = world();
         if (world == null || Bukkit.getWorld(world.getUID()) == null) {
@@ -229,10 +228,10 @@ public abstract class AlienWorld extends PlanetaryWorld {
         dayCycle().tick(world);
 
         List<Player> players = world.getPlayers();
-        for (Player p : players) {
-            gravity().applyGravity(p);
-            if (p.getGameMode() == GameMode.SURVIVAL) {
-                applyEffects(p);
+        for (Player player : players) {
+            gravity().applyGravity(player);
+            if (player.getGameMode() == GameMode.SURVIVAL) {
+                applyEffects(player);
             }
         }
 
@@ -240,23 +239,23 @@ public abstract class AlienWorld extends PlanetaryWorld {
             return;
         }
 
-        Random rand = ThreadLocalRandom.current();
-        Collections.shuffle(this.species, rand);
-
-        int mobs = 0;
-        for (LivingEntity entity : world.getLivingEntities()) {
-            if (Galactifun.alienManager().getAlien(entity) != null) {
-                mobs++;
-            }
-        }
-
         int max = players.size() * Galactifun.worldManager().maxAliensPerPlayer();
+        int mobs = Galactifun.alienManager().countInWorld(world);
         if (mobs >= max) {
             return;
         }
 
-        for (Alien<?> alien : this.species) {
-            mobs += alien.attemptSpawn(rand, world);
+        int attemptsPerPlayer = Math.max(1,
+                Galactifun.instance().getConfig().getInt("aliens.spawn-attempts-per-player", 6));
+        int radiusChunks = Math.max(0,
+                Galactifun.instance().getConfig().getInt("aliens.spawn-radius-chunks", 2));
+        Random rand = ThreadLocalRandom.current();
+
+        for (Player player : players) {
+            for (int attempt = 0; attempt < attemptsPerPlayer && mobs < max; attempt++) {
+                Alien<?> alien = this.species.get(rand.nextInt(this.species.size()));
+                mobs += alien.attemptSpawn(rand, player, radiusChunks);
+            }
             if (mobs >= max) {
                 break;
             }
