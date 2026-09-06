@@ -8,6 +8,10 @@ import javax.annotation.Nonnull;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.plugin.Plugin;
 
 import io.github.addoncommunity.galactifun.Galactifun;
@@ -47,6 +51,10 @@ public final class MultiverseIntegration {
             return;
         }
 
+        // PlanetaryWorld stores the active Bukkit World object and Galactifun ticks that object directly.
+        // Letting a world manager unload one while Galactifun is enabled would leave a stale runtime reference.
+        Bukkit.getPluginManager().registerEvents(new ManagedWorldUnloadGuard(plugin), plugin);
+
         try {
             Bridge bridge = new Bridge(plugin, multiverse);
             int registered = 0;
@@ -72,6 +80,29 @@ public final class MultiverseIntegration {
             return invocation.getCause();
         }
         return throwable;
+    }
+
+    private static final class ManagedWorldUnloadGuard implements Listener {
+
+        private final Galactifun plugin;
+
+        private ManagedWorldUnloadGuard(Galactifun plugin) {
+            this.plugin = plugin;
+        }
+
+        @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+        private void onWorldUnload(WorldUnloadEvent event) {
+            if (!plugin.isEnabled()
+                    || !plugin.getConfig().getBoolean("worlds.protect-managed-worlds", true)
+                    || Galactifun.worldManager().getAlienWorld(event.getWorld()) == null) {
+                return;
+            }
+
+            event.setCancelled(true);
+            plugin.getLogger().warning("Prevented unload of Galactifun-managed world "
+                    + event.getWorld().getName()
+                    + ". Galactifun keeps planetary worlds loaded to preserve generators, effects, and world state.");
+        }
     }
 
     private static final class Bridge {
@@ -118,8 +149,8 @@ public final class MultiverseIntegration {
             // Multiverse spawn adjustment is inappropriate for void/orbit and other custom planetary worlds.
             invokeAndCheck(multiverseWorld, "setAdjustSpawn", new Class<?>[] { boolean.class }, false);
 
-            // Persist the generator identity as a recovery path for explicit Multiverse load operations.
-            // The normal startup path still has Galactifun create the world before Multiverse attaches to it.
+            // Persist the generator identity as a recovery path. Normal startup still has Galactifun
+            // create the world before Multiverse attaches to it.
             Object propertyHandle = multiverseWorld.getClass().getMethod("getStringPropertyHandle")
                     .invoke(multiverseWorld);
             Method setPropertyString = propertyHandle.getClass()
