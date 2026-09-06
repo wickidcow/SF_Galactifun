@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -93,3 +93,24 @@ jobs:
           name: SF_Glactifun1.0.5
           path: build/libs/SF_Glactifun1.0.5.jar
           if-no-files-found: error
+
+      - name: Publish Galactifun 1.0.5 release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v1.0.5"
+          JAR="build/libs/SF_Glactifun1.0.5.jar"
+          TITLE="SF_Glactifun v1.0.5"
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$JAR" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "$JAR" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes "Galactifun Legacy 1.0.5 stable master build for Slimefun Legacy. Includes the Paper/Purpur 26.2 compatibility hardening, Multiverse integration, rocket/stargate travel safeguards, and Java 21 bytecode target."
+          fi
