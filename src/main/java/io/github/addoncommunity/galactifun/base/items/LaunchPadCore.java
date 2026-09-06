@@ -44,7 +44,6 @@ import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 
 public final class LaunchPadCore extends TickingMenuBlock {
 
-
     private static final int[] BACKGROUND = {
             0, 1, 2, 3, 4, 5, 6, 7, 8,
             9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -59,6 +58,7 @@ public final class LaunchPadCore extends TickingMenuBlock {
     private static final int[] INVENTORY_SLOTS = {
             27, 28, 29, 30, 36, 37, 38, 39, 45, 46, 47, 48
     };
+    private static final int STATUS_SLOT = 24;
     private static final int FUEL_SLOT = 33;
 
     public LaunchPadCore(ItemGroup category, SlimefunItemStack item, RecipeType type, ItemStack[] recipe) {
@@ -71,10 +71,16 @@ public final class LaunchPadCore extends TickingMenuBlock {
         Block b = block.getRelative(BlockFace.UP);
 
         SlimefunItem sfItem = SFStorage.item(b);
-        if (!(sfItem instanceof Rocket rocket)) return;
+        if (!(sfItem instanceof Rocket rocket)) {
+            menu.replaceExistingItem(STATUS_SLOT, idleStatusItem());
+            return;
+        }
 
         Location l = b.getLocation();
-        if (BSUtils.getStoredBoolean(l, "isLaunching")) return;
+        if (Rocket.isLaunchLocked(b)) {
+            updateStatus(menu, b, rocket);
+            return;
+        }
 
         String string = Objects.requireNonNullElse(SFStorage.getData(l, "fuel"), "0");
         int fuel = Integer.parseInt(string);
@@ -124,11 +130,54 @@ public final class LaunchPadCore extends TickingMenuBlock {
 
         container.set(Rocket.CARGO_KEY, PersistentType.ITEM_STACK_LIST, cargo);
         skull.update();
+        updateStatus(menu, b, rocket);
+    }
+
+    private static void updateStatus(@Nonnull BlockMenu menu, @Nonnull Block rocketBlock, @Nonnull Rocket rocket) {
+        Location location = rocketBlock.getLocation();
+        int fuel = BSUtils.getStoredInt(location, "fuel");
+        String fuelType = SFStorage.getData(location, "fuelType");
+        String fuelName = "None";
+        double efficiency = 0D;
+
+        if (fuelType != null) {
+            ItemStack fuelItem = StackUtils.itemByIdOrType(fuelType);
+            fuelName = fuelItem == null ? fuelType : ItemUtils.getItemName(fuelItem);
+            efficiency = rocket.allowedFuels().getOrDefault(fuelType, 0D);
+        }
+
+        int cargoStacks = 0;
+        if (rocketBlock.getState() instanceof Skull skull) {
+            cargoStacks = skull.getPersistentDataContainer()
+                    .getOrDefault(Rocket.CARGO_KEY, PersistentType.ITEM_STACK_LIST, new ArrayList<>())
+                    .size();
+        }
+
+        menu.replaceExistingItem(STATUS_SLOT, new CustomItemStack(
+                HeadTexture.FUEL_BUCKET.getAsItemStack(),
+                "&6Rocket Status",
+                "&7Status: &f" + Rocket.launchStatus(rocketBlock),
+                "&7Fuel: &f" + fuel + "/" + rocket.fuelCapacity(),
+                "&7Fuel Type: &f" + fuelName,
+                "&7Efficiency: &f" + efficiency + "x",
+                "&7Maximum Range: &f" + Util.formatDistance(rocket.maxDistanceFor(fuel, fuelType)),
+                "&7Cargo: &f" + cargoStacks + "/" + rocket.storageCapacity() + " stacks"
+        ));
+    }
+
+    @Nonnull
+    private static ItemStack idleStatusItem() {
+        return new CustomItemStack(
+                HeadTexture.FUEL_BUCKET.getAsItemStack(),
+                "&6Rocket Status",
+                "&7Place a rocket on the launch pad",
+                "&7then insert fuel and cargo here."
+        );
     }
 
     public static boolean canBreak(@Nonnull Player p, @Nonnull Block b) {
-        if (BSUtils.getStoredBoolean(b.getRelative(BlockFace.UP).getLocation(), "isLaunching")) {
-            Messages.red(p, "You cannot break the launchpad a rocket is launching on!");
+        if (Rocket.isLaunchLocked(b.getRelative(BlockFace.UP))) {
+            Messages.red(p, "You cannot break the launchpad while a rocket is reserved or launching!");
             return false;
         }
         return true;
@@ -139,7 +188,7 @@ public final class LaunchPadCore extends TickingMenuBlock {
         if (canBreak(e.getPlayer(), e.getBlock())) {
             Location l = e.getBlock().getLocation();
             menu.dropItems(l, INVENTORY_SLOTS);
-            menu.dropItems(l, 33);
+            menu.dropItems(l, FUEL_SLOT);
 
             Block rocketBlock = e.getBlock().getRelative(BlockFace.UP);
             SlimefunItem item = SFStorage.item(rocketBlock);
@@ -163,10 +212,7 @@ public final class LaunchPadCore extends TickingMenuBlock {
             preset.addItem(i, ChestMenuUtils.getOutputSlotTexture(), ChestMenuUtils.getEmptyClickHandler());
         }
 
-        preset.addItem(24, new CustomItemStack(
-                HeadTexture.FUEL_BUCKET.getAsItemStack(),
-                "&6Insert Fuel Here"
-        ), ChestMenuUtils.getEmptyClickHandler());
+        preset.addItem(STATUS_SLOT, idleStatusItem(), ChestMenuUtils.getEmptyClickHandler());
     }
 
     @Override
@@ -213,5 +259,4 @@ public final class LaunchPadCore extends TickingMenuBlock {
     protected boolean synchronous() {
         return true;
     }
-
 }
