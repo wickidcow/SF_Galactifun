@@ -34,10 +34,11 @@ public final class ProtectionManager {
     private final Map<BlockPosition, Map<AtmosphericEffect, Integer>> protectedBlocks = new HashMap<>();
 
     // Oxygen is maintained incrementally per Sealer. Ref-counting keeps overlapping Sealer rooms
-    // breathable when one Sealer is removed or rescanned.
+    // breathable when one Sealer is removed or rescanned. We intentionally do not keep a per-cell
+    // owner set: very large sealed rooms would multiply memory usage. Dirty lookups instead perform
+    // a few O(1) membership checks per registered Sealer.
     private final Map<BlockPosition, Set<BlockPosition>> oxygenBySource = new HashMap<>();
     private final Map<BlockPosition, Integer> oxygenRefCounts = new HashMap<>();
-    private final Map<BlockPosition, Set<BlockPosition>> oxygenOwners = new HashMap<>();
 
     @Nonnull
     public Map<AtmosphericEffect, Integer> protectionsAt(@Nonnull Location l) {
@@ -120,7 +121,6 @@ public final class ProtectionManager {
         this.oxygenBySource.put(source, copy);
         for (BlockPosition position : copy) {
             this.oxygenRefCounts.merge(position, 1, Integer::sum);
-            this.oxygenOwners.computeIfAbsent(position, ignored -> new HashSet<>()).add(source);
         }
     }
 
@@ -132,10 +132,6 @@ public final class ProtectionManager {
 
         for (BlockPosition position : previous) {
             this.oxygenRefCounts.computeIfPresent(position, (ignored, count) -> count <= 1 ? null : count - 1);
-            this.oxygenOwners.computeIfPresent(position, (ignored, owners) -> {
-                owners.remove(source);
-                return owners.isEmpty() ? null : owners;
-            });
         }
     }
 
@@ -145,10 +141,19 @@ public final class ProtectionManager {
 
     @Nonnull
     public Set<BlockPosition> oxygenSourcesNear(@Nonnull Block block) {
-        Set<BlockPosition> sources = new HashSet<>();
+        Set<BlockPosition> neighbors = new HashSet<>();
         for (BlockFace face : DIRTY_NEIGHBORS) {
-            BlockPosition position = new BlockPosition(block.getRelative(face).getLocation());
-            sources.addAll(this.oxygenOwners.getOrDefault(position, Collections.emptySet()));
+            neighbors.add(new BlockPosition(block.getRelative(face).getLocation()));
+        }
+
+        Set<BlockPosition> sources = new HashSet<>();
+        for (Map.Entry<BlockPosition, Set<BlockPosition>> entry : this.oxygenBySource.entrySet()) {
+            for (BlockPosition neighbor : neighbors) {
+                if (entry.getValue().contains(neighbor)) {
+                    sources.add(entry.getKey());
+                    break;
+                }
+            }
         }
         return sources;
     }
@@ -193,6 +198,5 @@ public final class ProtectionManager {
     public void resetOxygenBlocks() {
         this.oxygenBySource.clear();
         this.oxygenRefCounts.clear();
-        this.oxygenOwners.clear();
     }
 }
