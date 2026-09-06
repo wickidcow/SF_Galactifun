@@ -63,8 +63,10 @@ jobs:
             | grep -F "major version: 65"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           files: build/libs/SF_Glactifun1.0.4.jar
           generate_release_notes: true
           draft: false
