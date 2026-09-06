@@ -46,6 +46,14 @@ public final class DiscoveryManager implements Listener {
         this.file = new File(plugin.getDataFolder(), "discoveries.yml");
         load();
         Events.registerListener(this);
+
+        // Plugin reloads do not fire PlayerJoinEvent. Seed currently-online players so their
+        // present planet is recorded immediately rather than waiting for the next world change.
+        if (this.enabled) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                recordCurrentWorld(player);
+            }
+        }
     }
 
     private void load() {
