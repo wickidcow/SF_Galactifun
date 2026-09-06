@@ -46,13 +46,24 @@ public final class SpaceSuitUpgrader extends AContainer {
                 }
 
                 if (suit != null && upgrade != null) {
-                    ItemMeta meta = suitStack.getItemMeta();
+                    // Split exactly one suit item before changing metadata. Applying the upgrade to
+                    // a clone of the full input stack upgrades every item in that stack at once.
+                    ItemStack newSuit = suitStack.clone();
+                    newSuit.setAmount(1);
+                    ItemMeta meta = newSuit.getItemMeta();
                     if (upgrade.addTo(meta, suit.maxUpgrades())) {
-                        ItemStack newSuit = suitStack.clone();
                         newSuit.setItemMeta(meta);
+
+                        ItemStack consumedUpgrade = upgradeStack.clone();
+                        consumedUpgrade.setAmount(1);
+
                         upgradeStack.setAmount(upgradeStack.getAmount() - 1);
-                        suitStack.setAmount(0);
-                        return new MachineRecipe(5 / getSpeed(), new ItemStack[] {upgradeStack}, new ItemStack[] {newSuit});
+                        suitStack.setAmount(suitStack.getAmount() - 1);
+                        return new MachineRecipe(
+                                5 / getSpeed(),
+                                new ItemStack[] {consumedUpgrade},
+                                new ItemStack[] {newSuit}
+                        );
                     }
                 }
             }

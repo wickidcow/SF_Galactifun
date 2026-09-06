@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. v1.0.4)'
+        description: 'Release tag (e.g. v1.0.5)'
         required: true
-        default: 'v1.0.4'
+        default: 'v1.0.5'
 
 permissions:
   contents: write
@@ -56,9 +56,9 @@ jobs:
       - name: Verify Release Jar
         shell: bash
         run: |
-          JAR="build/libs/SF_Glactifun1.0.4.jar"
+          JAR="build/libs/SF_Glactifun1.0.5.jar"
           test -f "$JAR"
-          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.4'"
+          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.5'"
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
             | grep -F "major version: 65"
 
@@ -67,7 +67,7 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           target_commitish: ${{ github.sha }}
-          files: build/libs/SF_Glactifun1.0.4.jar
+          files: build/libs/SF_Glactifun1.0.5.jar
           generate_release_notes: true
           draft: false
           prerelease: false

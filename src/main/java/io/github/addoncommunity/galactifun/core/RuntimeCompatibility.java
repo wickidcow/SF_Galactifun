@@ -35,7 +35,7 @@ public final class RuntimeCompatibility {
         plugin.getLogger().info(" - Java: " + Runtime.version());
 
         if (!PaperLib.isPaper()) {
-            plugin.getLogger().severe("Galactifun 1.0.3 requires Paper or a Paper-compatible fork such as Purpur.");
+            plugin.getLogger().severe("Galactifun 1.0.5 requires Paper or a Paper-compatible fork such as Purpur.");
             compatible = false;
         }
 
