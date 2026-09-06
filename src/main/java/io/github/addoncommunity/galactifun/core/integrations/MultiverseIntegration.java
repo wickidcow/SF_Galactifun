@@ -1,0 +1,194 @@
+package io.github.addoncommunity.galactifun.core.integrations;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.logging.Level;
+
+import javax.annotation.Nonnull;
+
+import org.bukkit.Bukkit;
+import org.bukkit.World;
+import org.bukkit.plugin.Plugin;
+
+import io.github.addoncommunity.galactifun.Galactifun;
+import io.github.addoncommunity.galactifun.api.worlds.AlienWorld;
+
+/**
+ * Optional Multiverse-Core integration.
+ *
+ * <p>Galactifun remains the owner of planetary world creation and generation. Multiverse is only
+ * attached after the Bukkit worlds have already been created with Galactifun's generator. The
+ * Multiverse entries are then marked as non-autoloading so that, on future restarts, Multiverse
+ * waits for Galactifun to create the worlds again instead of trying to create them first.</p>
+ *
+ * <p>This bridge intentionally uses reflection. Multiverse shades several API implementation types
+ * in its release JAR, so avoiding a binary link keeps Multiverse optional and prevents a shaded API
+ * return type from leaking into Galactifun's bytecode.</p>
+ */
+public final class MultiverseIntegration {
+
+    private static final String MULTIVERSE_PLUGIN = "Multiverse-Core";
+    private static final String GENERATOR_NAME = "Galactifun";
+    private static final String API_CLASS = "org.mvplugins.multiverse.core.MultiverseCoreApi";
+    private static final String IMPORT_OPTIONS_CLASS =
+            "org.mvplugins.multiverse.core.world.options.ImportWorldOptions";
+
+    private MultiverseIntegration() {
+    }
+
+    public static void setup(@Nonnull Galactifun plugin) {
+        if (!plugin.getConfig().getBoolean("integrations.multiverse.register-worlds", true)) {
+            plugin.getLogger().info("Multiverse planet registration is disabled in config.");
+            return;
+        }
+
+        Plugin multiverse = Bukkit.getPluginManager().getPlugin(MULTIVERSE_PLUGIN);
+        if (multiverse == null || !multiverse.isEnabled()) {
+            return;
+        }
+
+        try {
+            Bridge bridge = new Bridge(plugin, multiverse);
+            int registered = 0;
+            for (AlienWorld alienWorld : Galactifun.worldManager().alienWorlds()) {
+                World world = alienWorld.world();
+                if (world != null && bridge.register(world)) {
+                    registered++;
+                }
+            }
+            bridge.save();
+            plugin.getLogger().info("Multiverse integration: " + registered
+                    + " Galactifun alien world(s) registered; Galactifun remains the world generator/loader.");
+        } catch (ReflectiveOperationException | LinkageError exception) {
+            plugin.getLogger().log(Level.WARNING,
+                    "Multiverse-Core was detected, but its API is not compatible with the Galactifun bridge. "
+                            + "Planet worlds remain fully usable through Galactifun, but Multiverse will not manage them.",
+                    unwrap(exception));
+        }
+    }
+
+    private static Throwable unwrap(Throwable throwable) {
+        if (throwable instanceof InvocationTargetException invocation && invocation.getCause() != null) {
+            return invocation.getCause();
+        }
+        return throwable;
+    }
+
+    private static final class Bridge {
+
+        private final Galactifun plugin;
+        private final Object worldManager;
+        private final Class<?> importOptionsClass;
+        private final Method getWorld;
+        private final Method importWorld;
+        private final Method saveWorldsConfig;
+
+        private Bridge(Galactifun plugin, Plugin multiverse) throws ReflectiveOperationException {
+            this.plugin = plugin;
+
+            ClassLoader loader = multiverse.getClass().getClassLoader();
+            Class<?> apiClass = Class.forName(API_CLASS, true, loader);
+            this.importOptionsClass = Class.forName(IMPORT_OPTIONS_CLASS, true, loader);
+
+            Object api = apiClass.getMethod("get").invoke(null);
+            this.worldManager = apiClass.getMethod("getWorldManager").invoke(api);
+            Class<?> worldManagerClass = this.worldManager.getClass();
+            this.getWorld = worldManagerClass.getMethod("getWorld", World.class);
+            this.importWorld = worldManagerClass.getMethod("importWorld", this.importOptionsClass);
+            this.saveWorldsConfig = worldManagerClass.getMethod("saveWorldsConfig");
+        }
+
+        private boolean register(World bukkitWorld) throws ReflectiveOperationException {
+            Object multiverseWorld = findWorld(bukkitWorld);
+            if (multiverseWorld == null) {
+                importExistingBukkitWorld(bukkitWorld);
+                multiverseWorld = findWorld(bukkitWorld);
+            }
+
+            if (multiverseWorld == null) {
+                plugin.getLogger().warning("Multiverse integration could not register " + bukkitWorld.getName()
+                        + "; Galactifun will continue managing the world directly.");
+                return false;
+            }
+
+            // Galactifun must always create/load this world first on startup. This avoids Multiverse
+            // constructing the planet before Galactifun has initialized its custom generator.
+            invokeAndCheck(multiverseWorld, "setAutoLoad", new Class<?>[] { boolean.class }, false);
+
+            // Multiverse spawn adjustment is inappropriate for void/orbit and other custom planetary worlds.
+            invokeAndCheck(multiverseWorld, "setAdjustSpawn", new Class<?>[] { boolean.class }, false);
+
+            // Persist the generator identity as a recovery path for explicit Multiverse load operations.
+            // The normal startup path still has Galactifun create the world before Multiverse attaches to it.
+            Object propertyHandle = multiverseWorld.getClass().getMethod("getStringPropertyHandle")
+                    .invoke(multiverseWorld);
+            Method setPropertyString = propertyHandle.getClass()
+                    .getMethod("setPropertyString", String.class, String.class);
+            Object generatorResult = setPropertyString.invoke(propertyHandle, "generator", GENERATOR_NAME);
+            if (!isSuccessful(generatorResult)) {
+                plugin.getLogger().warning("Multiverse integration could not persist generator metadata for "
+                        + bukkitWorld.getName() + '.');
+                return false;
+            }
+
+            return true;
+        }
+
+        private Object findWorld(World world) throws ReflectiveOperationException {
+            Object option = this.getWorld.invoke(this.worldManager, world);
+            Method isDefined = option.getClass().getMethod("isDefined");
+            if (!Boolean.TRUE.equals(isDefined.invoke(option))) {
+                return null;
+            }
+            return option.getClass().getMethod("get").invoke(option);
+        }
+
+        private void importExistingBukkitWorld(World world) throws ReflectiveOperationException {
+            Object options = this.importOptionsClass.getMethod("worldName", String.class)
+                    .invoke(null, world.getName());
+            options = this.importOptionsClass.getMethod("environment", World.Environment.class)
+                    .invoke(options, world.getEnvironment());
+            options = this.importOptionsClass.getMethod("generator", String.class)
+                    .invoke(options, GENERATOR_NAME);
+            options = this.importOptionsClass.getMethod("useSpawnAdjust", boolean.class)
+                    .invoke(options, false);
+
+            Object result = this.importWorld.invoke(this.worldManager, options);
+            if (!isSuccessful(result)) {
+                plugin.getLogger().warning("Multiverse import reported a failure for Galactifun world "
+                        + world.getName() + ".");
+            }
+        }
+
+        private void save() throws ReflectiveOperationException {
+            Object result = this.saveWorldsConfig.invoke(this.worldManager);
+            if (!isSuccessful(result)) {
+                plugin.getLogger().warning("Multiverse integration could not save worlds.yml after planet registration.");
+            }
+        }
+
+        private void invokeAndCheck(Object target, String methodName, Class<?>[] parameterTypes, Object argument)
+                throws ReflectiveOperationException {
+            Method method = target.getClass().getMethod(methodName, parameterTypes);
+            Object result = method.invoke(target, argument);
+            if (!isSuccessful(result)) {
+                plugin.getLogger().warning("Multiverse integration could not apply " + methodName
+                        + " to " + target + '.');
+            }
+        }
+
+        private boolean isSuccessful(Object result) throws ReflectiveOperationException {
+            if (result == null) {
+                return true;
+            }
+            try {
+                Method isSuccess = result.getClass().getMethod("isSuccess");
+                return Boolean.TRUE.equals(isSuccess.invoke(result));
+            } catch (NoSuchMethodException ignored) {
+                // A future API may return void or another success wrapper. Reaching this point means
+                // the reflective invocation itself succeeded, so do not turn compatibility into failure.
+                return true;
+            }
+        }
+    }
+}
