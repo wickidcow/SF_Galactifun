@@ -15,7 +15,7 @@ repositories {
 }
 
 group = "io.github.addoncommunity.galactifun"
-version = "1.0.4"
+version = "1.0.5"
 description = "Galactifun Legacy - space exploration and planetary gameplay for Slimefun Legacy"
 
 val slimefunCoreJar = providers.gradleProperty("slimefunCoreJar").orNull
@@ -82,7 +82,7 @@ tasks.processResources {
 
 tasks.shadowJar {
     archiveClassifier.set("")
-    archiveFileName.set("SF_Glactifun1.0.4.jar")
+    archiveFileName.set("SF_Glactifun1.0.5.jar")
     relocate("io.github.mooy1.infinitylib", "io.github.addoncommunity.galactifun.infinitylib")
     relocate("org.apache.commons.lang3", "io.github.addoncommunity.galactifun.commons.lang3")
     relocate("org.apache.commons.codec", "io.github.addoncommunity.galactifun.commons.codec")
