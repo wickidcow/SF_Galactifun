@@ -22,6 +22,7 @@ final class TitanBiomeProvider extends BiomeProvider {
 
     private volatile SimplexOctaveGenerator heat;
     private volatile SimplexOctaveGenerator humidity;
+    private volatile boolean initialized;
 
     private final Map<IntIntPair, TitanBiome> cachedData = Collections.synchronizedMap(new LinkedHashMap<>() {
         @Override
@@ -79,14 +80,29 @@ final class TitanBiomeProvider extends BiomeProvider {
         return allBiomes;
     }
 
+    /**
+     * Initializes both biome-noise generators before publishing them to concurrent chunk workers.
+     */
     private void init(WorldInfo worldInfo) {
-        if (this.heat == null) {
-            this.heat = new SimplexOctaveGenerator(worldInfo.getSeed(), 8);
-            this.heat.setScale(0.001);
+        if (this.initialized) {
+            return;
         }
-        if (this.humidity == null) {
-            this.humidity = new SimplexOctaveGenerator(new Random(worldInfo.getSeed()).nextLong(), 8);
-            this.humidity.setScale(0.003);
+
+        synchronized (this) {
+            if (this.initialized) {
+                return;
+            }
+
+            SimplexOctaveGenerator newHeat = new SimplexOctaveGenerator(worldInfo.getSeed(), 8);
+            newHeat.setScale(0.001);
+
+            SimplexOctaveGenerator newHumidity =
+                    new SimplexOctaveGenerator(new Random(worldInfo.getSeed()).nextLong(), 8);
+            newHumidity.setScale(0.003);
+
+            this.heat = newHeat;
+            this.humidity = newHumidity;
+            this.initialized = true;
         }
     }
 
