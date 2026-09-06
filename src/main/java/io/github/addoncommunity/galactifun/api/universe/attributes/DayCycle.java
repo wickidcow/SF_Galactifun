@@ -104,9 +104,10 @@ public final class DayCycle {
      * Apply time effects to world every 5 seconds.
      */
     public void tick(@Nonnull World world) {
-        if (this.perFiveSeconds != 0) {
-            setTimeSafely(world, world.getTime() + this.perFiveSeconds);
+        if (this.perFiveSeconds == 0 || WORLDS_WITHOUT_CLOCK.contains(world.getUID())) {
+            return;
         }
+        setTimeSafely(world, world.getTime() + this.perFiveSeconds);
     }
 
     /**
