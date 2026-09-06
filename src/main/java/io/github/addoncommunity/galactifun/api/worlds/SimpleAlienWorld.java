@@ -39,6 +39,7 @@ public abstract class SimpleAlienWorld extends AlienWorld {
 
     private final AtomicDouble craterDepthNoise = new AtomicDouble(0);
     private volatile CraterSettings craterSettings;
+    private volatile boolean generationInitialized;
 
     public SimpleAlienWorld(String name, PlanetaryType type, Orbit orbit, StarSystem orbiting, ItemStack baseItem,
                             DayCycle dayCycle, Atmosphere atmosphere, Gravity gravity) {
@@ -53,6 +54,7 @@ public abstract class SimpleAlienWorld extends AlienWorld {
     @Override
     protected final void generateChunk(@Nonnull ChunkGenerator.ChunkData chunk, @Nonnull Random random,
                                        @Nonnull WorldInfo world, int chunkX, int chunkZ) {
+        initGeneration(world);
 
         ObjectIntPair<Material> top = getTop();
         int heightSub = top == null ? 0 : top.rightInt();
@@ -60,7 +62,7 @@ public abstract class SimpleAlienWorld extends AlienWorld {
         for (int x = 0, realX = chunkX << 4; x < 16; x++, realX++) {
             for (int z = 0, realZ = chunkZ << 4; z < 16; z++, realZ++) {
 
-                int height = getHeight(world, realX, realZ) - heightSub;
+                int height = getHeight(realX, realZ) - heightSub;
 
                 // y = 1 to height, generate
                 int y = 1;
@@ -76,6 +78,8 @@ public abstract class SimpleAlienWorld extends AlienWorld {
 
     @Override
     protected final void generateSurface(@Nonnull ChunkGenerator.ChunkData chunk, @Nonnull Random random, @Nonnull WorldInfo world, int chunkX, int chunkZ) {
+        initGeneration(world);
+
         ObjectIntPair<Material> top = getTop();
         if (top != null) {
             Material material = top.left();
@@ -84,7 +88,7 @@ public abstract class SimpleAlienWorld extends AlienWorld {
             for (int x = 0, realX = chunkX << 4; x < 16; x++, realX++) {
                 for (int z = 0, realZ = chunkZ << 4; z < 16; z++, realZ++) {
 
-                    int topY = getHeight(world, realX, realZ);
+                    int topY = getHeight(realX, realZ);
 
                     for (int y = topY; y > topY - height; y--) {
                         chunk.setBlock(x, y, z, material);
@@ -94,24 +98,7 @@ public abstract class SimpleAlienWorld extends AlienWorld {
         }
     }
 
-    private int getHeight(WorldInfo info, int x, int z) {
-        if (this.generator == null) {
-            this.generator = new SimplexOctaveGenerator(info.getSeed(), getOctaves());
-            this.generator.setScale(getScale());
-        }
-        if (this.craterDepthNoise.get() != -1 && this.craterSettings == null) {
-            craterSettings = getCraterSettings();
-            if (this.craterSettings != null) {
-                this.craterDepthNoise.set(1 - this.craterSettings.noiseDepth());
-            } else {
-                this.craterDepthNoise.set(-1);
-            }
-        }
-        if (this.craterGenerator == null && this.craterSettings != null) {
-            this.craterGenerator = new SimplexOctaveGenerator(info.getSeed(), this.craterSettings.octaves());
-            this.craterGenerator.setScale(this.craterSettings.scale());
-        }
-
+    private int getHeight(int x, int z) {
         double noise = generator.noise(x, z, getFrequency(), getAmplitude(), true);
 
         if (smoothenTerrain()) {
@@ -129,6 +116,43 @@ public abstract class SimpleAlienWorld extends AlienWorld {
         // find max height
         double temp = getAverageHeight() + getMaxDeviation() * noise;
         return temp >= 0 ? (int) temp : (int) temp - 1;
+    }
+
+    /**
+     * Initializes all seed-dependent noise state as one safely published unit. Paper can generate
+     * multiple chunks of the same world concurrently, so publishing the generator before setScale()
+     * completes can otherwise expose partially initialized terrain settings to another chunk worker.
+     */
+    private void initGeneration(@Nonnull WorldInfo info) {
+        if (this.generationInitialized) {
+            return;
+        }
+
+        synchronized (this) {
+            if (this.generationInitialized) {
+                return;
+            }
+
+            SimplexOctaveGenerator terrainGenerator = new SimplexOctaveGenerator(info.getSeed(), getOctaves());
+            terrainGenerator.setScale(getScale());
+
+            CraterSettings settings = getCraterSettings();
+            SimplexOctaveGenerator newCraterGenerator = null;
+            double newCraterDepthNoise = -1;
+            if (settings != null) {
+                newCraterDepthNoise = 1 - settings.noiseDepth();
+                newCraterGenerator = new SimplexOctaveGenerator(info.getSeed(), settings.octaves());
+                newCraterGenerator.setScale(settings.scale());
+            }
+
+            this.generator = terrainGenerator;
+            this.craterSettings = settings;
+            this.craterGenerator = newCraterGenerator;
+            this.craterDepthNoise.set(newCraterDepthNoise);
+
+            // Volatile write publishes every initialized field above to subsequent chunk workers.
+            this.generationInitialized = true;
+        }
     }
 
     @Nonnull
