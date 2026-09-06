@@ -8,15 +8,18 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -47,6 +50,7 @@ import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.ItemStack;
@@ -80,7 +84,9 @@ public final class WorldManager implements Listener {
 
     private static final String PLACED = "placed";
 
-        private final int maxAliensPerPlayer;
+    private final int maxAliensPerPlayer;
+    private final int emergencyOxygenBufferSeconds;
+    private final boolean returnToEarthBedOnPlanetDeath;
     private final Map<World, PlanetaryWorld> spaceWorlds = new HashMap<>();
     private final Map<World, AlienWorld> alienWorlds = new HashMap<>();
     private final YamlConfiguration config;
@@ -89,9 +95,15 @@ public final class WorldManager implements Listener {
     private final Map<UUID, Integer> respawnTimes = new HashMap<>();
     private final Map<UUID, Long> lastDeaths = new HashMap<>();
     private final Map<UUID, Long> oxygenDamage = new HashMap<>();
+    private final Map<UUID, Integer> emergencyOxygenRemaining = new HashMap<>();
+    private final Set<UUID> planetaryDeaths = new HashSet<>();
 
     public WorldManager(Galactifun galactifun) {
         this.maxAliensPerPlayer = galactifun.getConfig().getInt("aliens.max-per-player", 4, 64);
+        this.emergencyOxygenBufferSeconds = galactifun.getConfig()
+                .getInt("player-safety.emergency-oxygen-buffer-seconds", 0, 300);
+        this.returnToEarthBedOnPlanetDeath = galactifun.getConfig()
+                .getBoolean("player-safety.return-to-earth-bed-on-planet-death");
 
         Events.registerListener(this);
         Scheduler.repeat(100, () -> this.alienWorlds.values().forEach(AlienWorld::tickWorld));
@@ -145,21 +157,83 @@ public final class WorldManager implements Listener {
 
     private void tickOxygen() {
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p.getGameMode() == GameMode.SURVIVAL) {
-                PlanetaryWorld world = spaceWorlds.get(p.getWorld());
-                if (world != null
-                        && world.atmosphere().requiresOxygenTank()
-                        && !Galactifun.protectionManager().isOxygenBlock(p.getLocation())
-                        && !SpaceSuitProfile.get(p).consumeOxygen(20)
-                        && !p.isDead()) {
-                    Messages.red(p, "You have run out of oxygen!");
-                    double damage = oxygenDamage.merge(p.getUniqueId(), 2L, (a, b) -> a * b);
-                    p.setHealth(Math.max(p.getHealth() - damage, 0));
-                } else {
-                    oxygenDamage.remove(p.getUniqueId());
-                }
+            if (p.getGameMode() != GameMode.SURVIVAL || p.isDead()) {
+                clearOxygenState(p);
+                continue;
             }
+
+            PlanetaryWorld world = this.spaceWorlds.get(p.getWorld());
+            if (world == null
+                    || !world.atmosphere().requiresOxygenTank()
+                    || Galactifun.protectionManager().isOxygenBlock(p.getLocation())) {
+                clearOxygenState(p);
+                continue;
+            }
+
+            if (SpaceSuitProfile.get(p).consumeOxygen(20)) {
+                clearOxygenState(p);
+                continue;
+            }
+
+            if (consumeEmergencyOxygenBuffer(p)) {
+                continue;
+            }
+
+            UUID uuid = p.getUniqueId();
+            if (!this.oxygenDamage.containsKey(uuid)) {
+                Messages.red(p, "Emergency oxygen depleted! You have run out of oxygen!");
+            }
+            double damage = this.oxygenDamage.merge(uuid, 2L, (a, b) -> a * b);
+            p.setHealth(Math.max(p.getHealth() - damage, 0));
         }
+    }
+
+    private boolean consumeEmergencyOxygenBuffer(Player player) {
+        if (this.emergencyOxygenBufferSeconds <= 0) {
+            return false;
+        }
+
+        UUID uuid = player.getUniqueId();
+        int remaining = this.emergencyOxygenRemaining.computeIfAbsent(
+                uuid,
+                ignored -> this.emergencyOxygenBufferSeconds
+        );
+        if (remaining <= 0) {
+            return false;
+        }
+
+        NamedTextColor color = remaining <= 10 ? NamedTextColor.RED : NamedTextColor.YELLOW;
+        player.sendActionBar(Component.text("Emergency oxygen reserve: " + remaining + "s", color));
+        this.emergencyOxygenRemaining.put(uuid, remaining - 1);
+        this.oxygenDamage.remove(uuid);
+        return true;
+    }
+
+    private void primeEmergencyOxygenBuffer(Player player, @Nullable PlanetaryWorld world) {
+        clearOxygenState(player);
+        if (this.emergencyOxygenBufferSeconds > 0
+                && world != null
+                && world.atmosphere().requiresOxygenTank()
+                && !player.isDead()) {
+            this.emergencyOxygenRemaining.put(player.getUniqueId(), this.emergencyOxygenBufferSeconds);
+            player.sendActionBar(Component.text(
+                    "Emergency oxygen reserve: " + this.emergencyOxygenBufferSeconds + "s",
+                    NamedTextColor.YELLOW
+            ));
+        }
+    }
+
+    private void clearOxygenState(Player player) {
+        UUID uuid = player.getUniqueId();
+        this.oxygenDamage.remove(uuid);
+        this.emergencyOxygenRemaining.remove(uuid);
+    }
+
+    public boolean isEmergencyAtmosphereProtectionActive(@Nonnull Player player) {
+        PlanetaryWorld world = this.spaceWorlds.get(player.getWorld());
+        return world != null
+                && world.atmosphere().requiresOxygenTank()
+                && this.emergencyOxygenRemaining.getOrDefault(player.getUniqueId(), 0) > 0;
     }
 
     @Nullable
@@ -176,7 +250,7 @@ public final class WorldManager implements Listener {
     public Collection<PlanetaryWorld> spaceWorlds() {
         return Collections.unmodifiableCollection(this.spaceWorlds.values());
     }
-    
+
     @Nonnull
     public Collection<AlienWorld> alienWorlds() {
         return Collections.unmodifiableCollection(this.alienWorlds.values());
@@ -190,8 +264,8 @@ public final class WorldManager implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void portal(PlayerPortalEvent e){
-        if (!Galactifun.instance().getConfig().getBoolean("worlds.allow-nether-portals") && getAlienWorld(e.getFrom().getWorld()) != null){
+    public void portal(PlayerPortalEvent e) {
+        if (!Galactifun.instance().getConfig().getBoolean("worlds.allow-nether-portals") && getAlienWorld(e.getFrom().getWorld()) != null) {
             e.setCancelled(true);
         }
     }
@@ -202,6 +276,10 @@ public final class WorldManager implements Listener {
         if (object != null) {
             object.gravity().removeGravity(e.getPlayer());
         }
+
+        PlanetaryWorld destination = getWorld(e.getPlayer().getWorld());
+        primeEmergencyOxygenBuffer(e.getPlayer(), destination);
+
         object = getAlienWorld(e.getPlayer().getWorld());
         if (object != null) {
             object.applyEffects(e.getPlayer());
@@ -210,6 +288,9 @@ public final class WorldManager implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     private void onPlanetJoin(@Nonnull PlayerJoinEvent e) {
+        PlanetaryWorld destination = getWorld(e.getPlayer().getWorld());
+        primeEmergencyOxygenBuffer(e.getPlayer(), destination);
+
         AlienWorld object = getAlienWorld(e.getPlayer().getWorld());
         if (object != null) {
             object.applyEffects(e.getPlayer());
@@ -218,8 +299,16 @@ public final class WorldManager implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     private void onPlayerChangeGameMode(@Nonnull PlayerGameModeChangeEvent e) {
+        if (e.getNewGameMode() == GameMode.CREATIVE || e.getNewGameMode() == GameMode.SPECTATOR) {
+            clearOxygenState(e.getPlayer());
+            return;
+        }
+
+        PlanetaryWorld destination = getWorld(e.getPlayer().getWorld());
+        primeEmergencyOxygenBuffer(e.getPlayer(), destination);
+
         AlienWorld object = getAlienWorld(e.getPlayer().getWorld());
-        if (object != null && !(e.getNewGameMode() == GameMode.CREATIVE || e.getNewGameMode() == GameMode.SPECTATOR)) {
+        if (object != null) {
             object.applyEffects(e.getPlayer());
         }
     }
@@ -346,6 +435,10 @@ public final class WorldManager implements Listener {
         Block b = e.getClickedBlock();
         if (b != null && Tag.BEDS.isTagged(b.getType())) {
             e.setCancelled(true);
+            if (this.returnToEarthBedOnPlanetDeath && world != BaseUniverse.EARTH) {
+                Messages.yellow(p, "Planetary beds do not change your respawn. Your Earth respawn is kept for safety.");
+                return;
+            }
             p.setRespawnLocation(p.getLocation(), true);
             p.sendMessage("Respawn point set");
         }
@@ -363,7 +456,12 @@ public final class WorldManager implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     private void onRespawnLoop(PlayerDeathEvent e) {
         Player p = e.getEntity();
-        if (this.getWorld(p.getWorld()) != null) {
+        PlanetaryWorld deathWorld = this.getWorld(p.getWorld());
+        if (deathWorld != null) {
+            if (this.returnToEarthBedOnPlanetDeath && deathWorld != BaseUniverse.EARTH) {
+                this.planetaryDeaths.add(p.getUniqueId());
+            }
+
             Long lastBoxed = this.lastDeaths.get(p.getUniqueId());
             if (lastBoxed != null) {
                 long timeSince = System.currentTimeMillis() - lastBoxed;
@@ -385,6 +483,25 @@ public final class WorldManager implements Listener {
 
             this.lastDeaths.put(p.getUniqueId(), System.currentTimeMillis());
         }
+
+        clearOxygenState(p);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    private void onPlayerRespawn(PlayerRespawnEvent e) {
+        UUID uuid = e.getPlayer().getUniqueId();
+        if (!this.returnToEarthBedOnPlanetDeath || !this.planetaryDeaths.remove(uuid)) {
+            return;
+        }
+
+        World earth = BaseUniverse.EARTH.world();
+        Location respawn = e.getPlayer().getRespawnLocation();
+        if (respawn == null || respawn.getWorld() == null || !respawn.getWorld().equals(earth)) {
+            respawn = earth.getSpawnLocation();
+        }
+
+        e.setRespawnLocation(respawn);
+        clearOxygenState(e.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -463,7 +580,6 @@ public final class WorldManager implements Listener {
     public boolean removePlacedBlock(Block b) {
         return ChunkStorage.untag(b, PLACED);
     }
-
 
     public int maxAliensPerPlayer() { return this.maxAliensPerPlayer; }
     public int getMaxAliensPerPlayer() { return this.maxAliensPerPlayer; }
