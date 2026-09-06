@@ -8,11 +8,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nonnull;
@@ -96,7 +94,6 @@ public final class WorldManager implements Listener {
     private final Map<UUID, Long> lastDeaths = new HashMap<>();
     private final Map<UUID, Long> oxygenDamage = new HashMap<>();
     private final Map<UUID, Integer> emergencyOxygenRemaining = new HashMap<>();
-    private final Set<UUID> planetaryDeaths = new HashSet<>();
 
     public WorldManager(Galactifun galactifun) {
         this.maxAliensPerPlayer = galactifun.getConfig().getInt("aliens.max-per-player", 4, 64);
@@ -114,7 +111,6 @@ public final class WorldManager implements Listener {
         this.defaultConfig = new YamlConfiguration();
         this.config.setDefaults(this.defaultConfig);
 
-        // Load the config
         if (configFile.exists()) {
             try {
                 this.config.load(configFile);
@@ -123,7 +119,6 @@ public final class WorldManager implements Listener {
             }
         }
 
-        // Save the config after startup
         Scheduler.run(() -> {
             try {
                 this.config.options().copyDefaults(true);
@@ -463,10 +458,6 @@ public final class WorldManager implements Listener {
         Player p = e.getEntity();
         PlanetaryWorld deathWorld = this.getWorld(p.getWorld());
         if (deathWorld != null) {
-            if (this.returnToEarthBedOnPlanetDeath && deathWorld != BaseUniverse.EARTH) {
-                this.planetaryDeaths.add(p.getUniqueId());
-            }
-
             Long lastBoxed = this.lastDeaths.get(p.getUniqueId());
             if (lastBoxed != null) {
                 long timeSince = System.currentTimeMillis() - lastBoxed;
@@ -494,15 +485,32 @@ public final class WorldManager implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     private void onPlayerRespawn(PlayerRespawnEvent e) {
-        UUID uuid = e.getPlayer().getUniqueId();
-        if (!this.returnToEarthBedOnPlanetDeath || !this.planetaryDeaths.remove(uuid)) {
+        if (!this.returnToEarthBedOnPlanetDeath
+                || e.getRespawnReason() != PlayerRespawnEvent.RespawnReason.DEATH) {
+            return;
+        }
+
+        Location deathLocation = e.getPlayer().getLastDeathLocation();
+        if (deathLocation == null || deathLocation.getWorld() == null) {
+            return;
+        }
+
+        PlanetaryWorld deathWorld = this.getWorld(deathLocation.getWorld());
+        if (deathWorld == null || deathWorld == BaseUniverse.EARTH) {
             return;
         }
 
         World earth = BaseUniverse.EARTH.world();
-        Location respawn = e.getPlayer().getRespawnLocation();
-        if (respawn == null || respawn.getWorld() == null || !respawn.getWorld().equals(earth)) {
-            respawn = earth.getSpawnLocation();
+        Location respawn = e.getRespawnLocation();
+        if (respawn.getWorld() == null || !respawn.getWorld().equals(earth)) {
+            Location playerRespawn = e.getPlayer().getRespawnLocation();
+            if (playerRespawn != null
+                    && playerRespawn.getWorld() != null
+                    && playerRespawn.getWorld().equals(earth)) {
+                respawn = playerRespawn;
+            } else {
+                respawn = earth.getSpawnLocation();
+            }
         }
 
         e.setRespawnLocation(respawn);
