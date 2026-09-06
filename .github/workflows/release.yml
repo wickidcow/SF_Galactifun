@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. v1.21.0)'
+        description: 'Release tag (e.g. v1.0.2)'
         required: true
-        default: 'v1.21.0'
+        default: 'v1.0.2'
 
 permissions:
   contents: write
@@ -21,26 +21,51 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Download released Slimefun Legacy 4.1.45 JAR
+        shell: bash
+        run: |
+          mkdir -p .ci
+          curl --fail --location --silent --show-error \
+            https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.45/Slimefun-Legacy4.1.45.jar \
+            --output .ci/Slimefun-Legacy4.1.45.jar
+
+          echo "3a6b1a377507f7a5ee542b1e062e5d67e13d80e1f200ecb5f0be58fe8c26011c  .ci/Slimefun-Legacy4.1.45.jar" \
+            | sha256sum --check --strict
+
+          echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
+
       - name: Build Shadow Jar
-        run: ./gradlew shadowJar --no-daemon
+        run: |
+          chmod +x gradlew
+          ./gradlew clean shadowJar --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR"
+
+      - name: Verify Release Jar
+        shell: bash
+        run: |
+          JAR="build/libs/SF_Glactifun1.0.2.jar"
+          test -f "$JAR"
+          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.2'"
+          javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
+            | grep -F "major version: 65"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/libs/Galactifun-*.jar
+          files: build/libs/SF_Glactifun1.0.2.jar
           generate_release_notes: true
           draft: false
           prerelease: false
