@@ -63,9 +63,9 @@ public final class RuntimeCompatibility {
         compatible &= rejectKnownConflict(plugin, "ChatColor2");
 
         reportOptionalPlugin(plugin, "Multiverse-Core",
-                "detected; Galactifun will create its planet worlds first and then register them with Multiverse");
+                "Galactifun creates planet worlds first and registers them with Multiverse afterward");
         reportOptionalPlugin(plugin, "BentoBox",
-                "detected; integration remains soft-linked and does not become a startup requirement");
+                "integration remains soft-linked and does not become a startup requirement");
 
         if (compatible) {
             plugin.getLogger().info("Runtime compatibility preflight passed.");
@@ -134,11 +134,14 @@ public final class RuntimeCompatibility {
 
     private static void reportOptionalPlugin(Galactifun plugin, String pluginName, String message) {
         Plugin optional = Bukkit.getPluginManager().getPlugin(pluginName);
-        if (optional != null && optional.isEnabled()) {
-            plugin.getLogger().info(" - " + pluginName + " " + optional.getPluginMeta().getVersion() + ": " + message);
-        } else {
+        if (optional == null) {
             plugin.getLogger().info(" - " + pluginName + ": not installed (optional)");
+            return;
         }
+
+        String state = optional.isEnabled() ? "enabled" : "installed; awaiting enable";
+        plugin.getLogger().info(" - " + pluginName + " " + optional.getPluginMeta().getVersion()
+                + " (" + state + "): " + message);
     }
 
     private static boolean isClassPresent(String className) {
