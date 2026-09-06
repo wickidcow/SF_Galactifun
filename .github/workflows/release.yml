@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. v1.0.3)'
+        description: 'Release tag (e.g. v1.0.4)'
         required: true
-        default: 'v1.0.3'
+        default: 'v1.0.4'
 
 permissions:
   contents: write
@@ -48,24 +48,24 @@ jobs:
 
           echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
 
-      - name: Build Shadow Jar
+      - name: Test and build Shadow Jar
         run: |
           chmod +x gradlew
-          ./gradlew clean shadowJar --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR"
+          ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR"
 
       - name: Verify Release Jar
         shell: bash
         run: |
-          JAR="build/libs/SF_Glactifun1.0.3.jar"
+          JAR="build/libs/SF_Glactifun1.0.4.jar"
           test -f "$JAR"
-          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.3'"
+          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.4'"
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
             | grep -F "major version: 65"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/libs/SF_Glactifun1.0.3.jar
+          files: build/libs/SF_Glactifun1.0.4.jar
           generate_release_notes: true
           draft: false
           prerelease: false
