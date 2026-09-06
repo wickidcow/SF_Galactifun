@@ -46,6 +46,10 @@ aliens:
   leech-eat-chance: 50
 
 rockets:
+
+  # How long a player may hold a rocket destination reservation before it is automatically released.
+  # This closes the multi-player launch race without allowing abandoned reservations to lock a rocket forever.
+  reservation-timeout-seconds: 60
   
   # Messages while rocket is launching. Must have at least 4
   launch-msgs: 
@@ -59,6 +63,23 @@ rockets:
     - Taking one small step
     - Going Boomer
     - Not going home
+
+oxygen-sealer:
+
+  # Keep the historical Galactifun balance by default: each adjacent Super Fan increases the
+  # current sealing range by 15%. Set to 50 to mimic the Galactifun-boosted fork.
+  super-fan-range-bonus-percent: 15
+
+  # Maximum adjacent Super Fans that can increase a sealer's range. Set to 0 for unlimited.
+  maximum-super-fans: 4
+
+  # Hard cap passed to the flood-fill safety scan. Lower values reduce worst-case main-thread work.
+  # Set to 0 to disable this extra cap.
+  max-sealed-blocks: 300000
+
+  # Recalculate sealed rooms at this interval. Higher values reduce background work but make room
+  # changes take longer to be noticed.
+  scan-interval-seconds: 3
 
 other:
 
