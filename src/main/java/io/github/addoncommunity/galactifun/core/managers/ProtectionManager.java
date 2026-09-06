@@ -33,10 +33,6 @@ public final class ProtectionManager {
 
     private final Map<BlockPosition, Map<AtmosphericEffect, Integer>> protectedBlocks = new HashMap<>();
 
-    // Oxygen is maintained incrementally per Sealer. Ref-counting keeps overlapping Sealer rooms
-    // breathable when one Sealer is removed or rescanned. We intentionally do not keep a per-cell
-    // owner set: very large sealed rooms would multiply memory usage. Dirty lookups instead perform
-    // a few O(1) membership checks per registered Sealer.
     private final Map<BlockPosition, Set<BlockPosition>> oxygenBySource = new HashMap<>();
     private final Map<BlockPosition, Integer> oxygenRefCounts = new HashMap<>();
 
@@ -66,7 +62,6 @@ public final class ProtectionManager {
         this.protectedBlocks.computeIfAbsent(pos, k -> new HashMap<>()).merge(effect, level, Integer::sum);
     }
 
-    /** Clears the cached atmospheric protection map before the next protection scan. */
     public void resetProtectedBlocks() {
         this.protectedBlocks.clear();
     }
@@ -111,9 +106,6 @@ public final class ProtectionManager {
         return ret;
     }
 
-    /**
-     * Replaces one Sealer's cached breathable room without disturbing overlapping Sealer rooms.
-     */
     public void replaceOxygenSource(@Nonnull BlockPosition source, @Nonnull Set<BlockPosition> positions) {
         removeOxygenSource(source);
 
@@ -158,26 +150,29 @@ public final class ProtectionManager {
         return sources;
     }
 
-    /**
-     * Compatibility helper for older callers. New Sealer code should use replaceOxygenSource.
-     */
     public void addOxygenBlock(@Nonnull BlockPosition l) {
         this.oxygenRefCounts.merge(l, 1, Integer::sum);
     }
 
-    public boolean isOxygenBlock(@Nonnull Location l) {
+    private boolean isOxygenCell(@Nonnull Location location) {
         OxygenZoneManager zones = Galactifun.oxygenZoneManager();
-        return this.oxygenRefCounts.containsKey(new BlockPosition(l))
-                || (zones != null && zones.providesOxygen(l));
+        return this.oxygenRefCounts.containsKey(new BlockPosition(location))
+                || (zones != null && zones.providesOxygen(location));
     }
 
     /**
-     * Samples feet/body/eye cells so slabs, trapdoors and block-edge positions do not cause false
-     * suffocation while the player is otherwise inside a breathable room.
+     * Compatibility lookup used by existing player oxygen checks. It samples feet, torso and head
+     * so standing on slabs/trapdoors or exactly across a block boundary does not cause false suffocation.
      */
+    public boolean isOxygenBlock(@Nonnull Location l) {
+        return isOxygenCell(l)
+                || isOxygenCell(l.clone().add(0, 0.75, 0))
+                || isOxygenCell(l.clone().add(0, 1.5, 0));
+    }
+
     public boolean isOxygenProtected(@Nonnull Player player) {
         for (Location sample : playerSamples(player)) {
-            if (isOxygenBlock(sample)) {
+            if (isOxygenCell(sample)) {
                 return true;
             }
         }
@@ -192,9 +187,6 @@ public final class ProtectionManager {
         return new Location[] {feet, body, eyes};
     }
 
-    /**
-     * Full clear retained for shutdown/tests. Runtime Sealer scans should update only their source.
-     */
     public void resetOxygenBlocks() {
         this.oxygenBySource.clear();
         this.oxygenRefCounts.clear();
