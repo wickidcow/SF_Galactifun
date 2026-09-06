@@ -23,6 +23,7 @@ import io.github.addoncommunity.galactifun.core.commands.EffectsCommand;
 import io.github.addoncommunity.galactifun.core.commands.GalactiportCommand;
 import io.github.addoncommunity.galactifun.core.commands.SealedCommand;
 import io.github.addoncommunity.galactifun.core.commands.StructureCommand;
+import io.github.addoncommunity.galactifun.core.integrations.MultiverseIntegration;
 import io.github.addoncommunity.galactifun.core.managers.AlienManager;
 import io.github.addoncommunity.galactifun.core.managers.ProtectionManager;
 import io.github.addoncommunity.galactifun.core.managers.WorldManager;
@@ -80,6 +81,11 @@ public final class Galactifun extends AbstractAddon {
 
         BaseAlien.setup(this.alienManager);
         BaseUniverse.setup(this);
+
+        // Galactifun must create its custom worlds first. Multiverse, when present, is attached only
+        // after the planetary registry is complete so it never replaces a Galactifun generator.
+        MultiverseIntegration.setup(this);
+
         CoreItemGroup.setup(this);
         BaseMats.setup();
         BaseItems.setup(this);

@@ -10,6 +10,7 @@ depend:
   - Slimefun
 softdepend:
   - BentoBox
+loadbefore:
   - Multiverse-Core
 
 commands:
