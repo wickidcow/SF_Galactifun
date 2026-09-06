@@ -1,5 +1,9 @@
 package io.github.addoncommunity.galactifun.api.universe.attributes;
 
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import javax.annotation.Nonnull;
 
 import org.bukkit.GameRules;
@@ -16,6 +20,12 @@ public final class DayCycle {
     public static final DayCycle ETERNAL_DAY = DayCycle.eternal(6000L);
     public static final DayCycle ETERNAL_NIGHT = DayCycle.eternal(18000L);
     public static final DayCycle EARTH_LIKE = DayCycle.hours(24);
+
+    /**
+     * Paper/Purpur 26.x can expose dimensions without a world clock. Remember them globally so every
+     * {@link DayCycle} instance stops retrying {@link World#setTime(long)} after the first rejection.
+     */
+    private static final Set<UUID> WORLDS_WITHOUT_CLOCK = ConcurrentHashMap.newKeySet();
 
     @Nonnull
     public static DayCycle eternal(long time) {
@@ -100,19 +110,37 @@ public final class DayCycle {
     }
 
     /**
-     * Paper 26.x can expose custom/dimension worlds without a world clock. Calling setTime on one of
-     * those worlds throws IllegalArgumentException. Skip only that known clockless-world condition so
-     * the Galactifun world ticker cannot spam the server log every five seconds.
+     * Sets time only for dimensions that actually expose a world clock.
+     *
+     * <p>Recent Paper/Purpur builds throw {@link IllegalArgumentException} when {@code setTime} is used
+     * on a clockless dimension. Bukkit currently has no capability query for this, so Galactifun learns
+     * that property once and then avoids the hot exception path forever for that world UUID.</p>
      */
-    private static void setTimeSafely(@Nonnull World world, long time) {
+    static boolean setTimeSafely(@Nonnull World world, long time) {
+        UUID worldId = world.getUID();
+        if (WORLDS_WITHOUT_CLOCK.contains(worldId)) {
+            return false;
+        }
+
         try {
             world.setTime(time);
+            return true;
         } catch (IllegalArgumentException exception) {
             String message = exception.getMessage();
-            if (message == null || !message.contains("without world clock")) {
-                throw exception;
+            if (message != null && message.contains("without world clock")) {
+                WORLDS_WITHOUT_CLOCK.add(worldId);
+                return false;
             }
+            throw exception;
         }
+    }
+
+    static boolean isClocklessWorldCached(@Nonnull UUID worldId) {
+        return WORLDS_WITHOUT_CLOCK.contains(worldId);
+    }
+
+    static void clearClocklessWorldCache() {
+        WORLDS_WITHOUT_CLOCK.clear();
     }
 
     public String description() {
