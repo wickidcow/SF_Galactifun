@@ -43,7 +43,7 @@ jobs:
           echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
           echo "Compiling against published Slimefun Legacy 4.1.45 release JAR"
 
-      - name: Test and build Galactifun 1.0.5
+      - name: Test and build Galactifun 1.0.6
         run: |
           chmod +x gradlew
           ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR"
@@ -51,18 +51,18 @@ jobs:
       - name: Verify release artifact
         shell: bash
         run: |
-          JAR="build/libs/SF_Glactifun1.0.5.jar"
+          JAR="build/libs/SF_Glactifun1.0.6.jar"
           test -f "$JAR"
 
           echo "Verifying plugin metadata"
           unzip -p "$JAR" plugin.yml | tee /tmp/galactifun-plugin.yml
           grep -F "name: Galactifun" /tmp/galactifun-plugin.yml
-          grep -F "version: '1.0.5'" /tmp/galactifun-plugin.yml
+          grep -F "version: '1.0.6'" /tmp/galactifun-plugin.yml
           grep -F "api-version: '26.2'" /tmp/galactifun-plugin.yml
           grep -F "  - Slimefun" /tmp/galactifun-plugin.yml
           grep -F "  - Multiverse-Core" /tmp/galactifun-plugin.yml
 
-          echo "Verifying hardening and compatibility classes"
+          echo "Verifying hardening, atmosphere, travel and discovery classes"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/RuntimeCompatibility.class"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/integrations/MultiverseIntegration.class"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/RocketLaunchRegistry.class"
@@ -70,6 +70,17 @@ jobs:
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/StargateTravelValidator.class"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/base/items/SpaceSuitUpgrader.class"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/WorldManager.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/base/items/protection/OxygenSealer.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/ProtectionManager.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/OxygenZoneManager.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/AtmosphereCacheListener.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/TravelManager.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/DiscoveryManager.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/api/events/PlanetFirstVisitEvent.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/LandingHatchManager.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/LandingHatchListener.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/LandingSelector.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/WorldSelector.class"
 
           echo "Verifying Java 21 bytecode"
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
@@ -90,6 +101,6 @@ jobs:
       - name: Upload Galactifun JAR
         uses: actions/upload-artifact@v7
         with:
-          name: SF_Glactifun1.0.5
-          path: build/libs/SF_Glactifun1.0.5.jar
+          name: SF_Glactifun1.0.6
+          path: build/libs/SF_Glactifun1.0.6.jar
           if-no-files-found: error
