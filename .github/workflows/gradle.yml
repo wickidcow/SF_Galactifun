@@ -43,7 +43,7 @@ jobs:
           echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
           echo "Compiling against published Slimefun Legacy 4.1.45 release JAR"
 
-      - name: Build Galactifun 1.0.1
+      - name: Build Galactifun 1.0.2
         run: |
           chmod +x gradlew
           ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR"
@@ -51,27 +51,32 @@ jobs:
       - name: Verify release artifact
         shell: bash
         run: |
-          JAR="build/libs/SF_Glactifun1.0.1.jar"
+          JAR="build/libs/SF_Glactifun1.0.2.jar"
           test -f "$JAR"
 
           echo "Verifying plugin metadata"
           unzip -p "$JAR" plugin.yml | tee /tmp/galactifun-plugin.yml
           grep -F "name: Galactifun" /tmp/galactifun-plugin.yml
-          grep -F "version: '1.0.1'" /tmp/galactifun-plugin.yml
+          grep -F "version: '1.0.2'" /tmp/galactifun-plugin.yml
           grep -F "api-version: '26.2'" /tmp/galactifun-plugin.yml
           grep -F "  - Slimefun" /tmp/galactifun-plugin.yml
           grep -F "  - Multiverse-Core" /tmp/galactifun-plugin.yml
 
-          echo "Verifying runtime compatibility class"
+          echo "Verifying runtime compatibility and Multiverse bridge classes"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/RuntimeCompatibility.class"
+          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/integrations/MultiverseIntegration.class"
 
           echo "Verifying Java 21 bytecode"
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
             | grep -F "major version: 65"
 
-          echo "Verifying Slimefun is not shaded into the addon"
+          echo "Verifying Slimefun and Multiverse are not shaded into the addon"
           if jar tf "$JAR" | grep -q '^io/github/thebusybiscuit/slimefun4/'; then
             echo "Slimefun classes were unexpectedly bundled into Galactifun" >&2
+            exit 1
+          fi
+          if jar tf "$JAR" | grep -q '^org/mvplugins/multiverse/'; then
+            echo "Multiverse classes were unexpectedly bundled into Galactifun" >&2
             exit 1
           fi
 
@@ -80,6 +85,6 @@ jobs:
       - name: Upload Galactifun JAR
         uses: actions/upload-artifact@v7
         with:
-          name: SF_Glactifun1.0.1
-          path: build/libs/SF_Glactifun1.0.1.jar
+          name: SF_Glactifun1.0.2
+          path: build/libs/SF_Glactifun1.0.2.jar
           if-no-files-found: error
