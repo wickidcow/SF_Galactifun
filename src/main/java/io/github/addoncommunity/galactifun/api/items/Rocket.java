@@ -423,6 +423,7 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
         }
 
         Location sourceLocation = rocket.getLocation();
+        World playerWorld = sourceLocation.getWorld();
 
         // Remove the source before delivering its contents. If anything after this point cannot enter
         // the chest, leftovers are dropped at the destination instead of leaving a duplicate source.
