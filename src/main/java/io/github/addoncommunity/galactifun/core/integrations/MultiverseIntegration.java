@@ -179,19 +179,9 @@ public final class MultiverseIntegration {
             // Multiverse spawn adjustment is inappropriate for void/orbit and other custom planetary worlds.
             invokeAndCheck(multiverseWorld, "setAdjustSpawn", new Class<?>[] { boolean.class }, false);
 
-            // Persist the generator identity as a recovery path. Normal startup still has Galactifun
-            // create the world before Multiverse attaches to it.
-            Object propertyHandle = multiverseWorld.getClass().getMethod("getStringPropertyHandle")
-                    .invoke(multiverseWorld);
-            Method setPropertyString = propertyHandle.getClass()
-                    .getMethod("setPropertyString", String.class, String.class);
-            Object generatorResult = setPropertyString.invoke(propertyHandle, "generator", GENERATOR_NAME);
-            if (!isSuccessful(generatorResult)) {
-                plugin.getLogger().warning("Multiverse integration could not persist generator metadata for "
-                        + bukkitWorld.getName() + '.');
-                return false;
-            }
-
+            // Do not rewrite generator metadata through newer Multiverse property-handle APIs here.
+            // Multiverse 5.1+ already stores GENERATOR_NAME when a world is imported above, while
+            // existing entries are safe because Galactifun is load-before Multiverse and auto-load is false.
             return true;
         }
 
