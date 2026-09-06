@@ -10,7 +10,10 @@ import org.bukkit.Material;
 import org.bukkit.generator.LimitedRegion;
 
 /**
- * A class for optimized generation of spheres of blocks
+ * A class for optimized generation of spheres of blocks.
+ *
+ * <p>Generation state is deliberately scoped to a single invocation so the same {@code Sphere}
+ * can safely be reused by Paper's parallel chunk-generation workers.</p>
  *
  * @author Mooy1
  */
@@ -20,33 +23,32 @@ public final class Sphere {
     public static final int MAX_RADIUS = 125;
 
     private final Material[] materials;
-    private Location currentMiddle;
-    private int currentMaterial;
-    private LimitedRegion currentRegion;
 
     public Sphere(@Nonnull Material... materials) {
-        Validate.isTrue((this.materials = materials).length != 0);
+        Validate.isTrue(materials.length != 0);
+        this.materials = materials.clone();
     }
 
     public void generate(@Nonnull Location middle, @Nonnull LimitedRegion region, int min, int dev) {
-        Validate.isTrue(min >= MIN_RADIUS && dev >= 0 && min + dev <= MAX_RADIUS, "Generation parameters out of bounds!");
-        this.currentRegion = region;
-        this.currentMiddle = middle;
+        Validate.isTrue(min >= MIN_RADIUS && dev >= 0 && min + dev <= MAX_RADIUS,
+                "Generation parameters out of bounds!");
+
+        GenerationState state = new GenerationState(middle, region);
 
         // radius
         int radius = min + ThreadLocalRandom.current().nextInt(dev + 1);
         int radiusSquared = radius * radius;
 
         // center block
-        gen(0, 0, 0);
+        state.gen(0, 0, 0);
 
         // outer middle blocks, furthest from middle
-        genMiddles(radius);
+        state.genMiddles(radius);
 
         for (int x = 1, vector1 = 1; x < radius; vector1 += (x++ << 1) + 1) {
 
             // middle blocks
-            genMiddles(x);
+            state.genMiddles(x);
 
             for (int y = x, vector2 = vector1 + y * y; y < radius; vector2 += (y++ << 1) + 1) {
 
@@ -54,9 +56,9 @@ public final class Sphere {
                 if (vector2 < radiusSquared) {
 
                     // edges
-                    genEdges(x, y);
+                    state.genEdges(x, y);
                     if (x != y) {
-                        genEdges(y, x);
+                        state.genEdges(y, x);
                     }
 
                 } else {
@@ -69,18 +71,18 @@ public final class Sphere {
                     if (vector3 < radiusSquared) {
 
                         // corners
-                        genCorners(x, y, z);
+                        state.genCorners(x, y, z);
                         if (x != y) {
-                            genCorners(y, x, z);
-                            genCorners(z, y, x);
+                            state.genCorners(y, x, z);
+                            state.genCorners(z, y, x);
                             if (y != z) {
-                                genCorners(x, z, y);
-                                genCorners(z, x, y);
-                                genCorners(y, z, x);
+                                state.genCorners(x, z, y);
+                                state.genCorners(z, x, y);
+                                state.genCorners(y, z, x);
                             }
                         } else if (x != z) {
-                            genCorners(z, y, x);
-                            genCorners(x, z, y);
+                            state.genCorners(z, y, x);
+                            state.genCorners(x, z, y);
                         }
 
                     } else {
@@ -89,59 +91,72 @@ public final class Sphere {
                 }
             }
         }
-
-        this.currentMiddle = null;
     }
 
-    private void genMiddles(int a) {
-        gen(a, 0, 0);
-        gen(-a, 0, 0);
-        gen(0, a, 0);
-        randomize();
-        gen(0, -a, 0);
-        gen(0, 0, a);
-        gen(0, 0, -a);
-    }
+    /**
+     * Mutable cursor for one sphere generation only. Keeping it local prevents two chunk workers from
+     * sharing a material index, middle location, or LimitedRegion while populators run concurrently.
+     */
+    private final class GenerationState {
 
-    private void genEdges(int a, int b) {
-        gen(a, b, 0);
-        gen(-a, b, 0);
-        randomize();
-        gen(a, -b, 0);
-        gen(-a, -b, 0);
-        gen(0, a, b);
-        gen(0, -a, b);
-        randomize();
-        gen(0, a, -b);
-        gen(0, -a, -b);
-        gen(a, 0, b);
-        gen(-a, 0, b);
-        randomize();
-        gen(a, 0, -b);
-        gen(-a, 0, -b);
-    }
+        private final Location middle;
+        private final LimitedRegion region;
+        private int currentMaterial;
 
-    private void genCorners(int a, int b, int c) {
-        gen(a, b, c);
-        gen(-a, b, c);
-        gen(a, -b, c);
-        gen(a, b, -c);
-        randomize();
-        gen(-a, -b, c);
-        gen(a, -b, -c);
-        gen(-a, b, -c);
-        gen(-a, -b, -c);
-    }
+        private GenerationState(Location middle, LimitedRegion region) {
+            this.middle = middle;
+            this.region = region;
+        }
 
-    private void gen(int x, int y, int z) {
-        this.currentRegion.setType(currentMiddle.clone().add(x, y, z), this.materials[this.currentMaterial++]);
-        if (this.currentMaterial == this.materials.length) {
-            this.currentMaterial = 0;
+        private void genMiddles(int a) {
+            gen(a, 0, 0);
+            gen(-a, 0, 0);
+            gen(0, a, 0);
+            randomize();
+            gen(0, -a, 0);
+            gen(0, 0, a);
+            gen(0, 0, -a);
+        }
+
+        private void genEdges(int a, int b) {
+            gen(a, b, 0);
+            gen(-a, b, 0);
+            randomize();
+            gen(a, -b, 0);
+            gen(-a, -b, 0);
+            gen(0, a, b);
+            gen(0, -a, b);
+            randomize();
+            gen(0, a, -b);
+            gen(0, -a, -b);
+            gen(a, 0, b);
+            gen(-a, 0, b);
+            randomize();
+            gen(a, 0, -b);
+            gen(-a, 0, -b);
+        }
+
+        private void genCorners(int a, int b, int c) {
+            gen(a, b, c);
+            gen(-a, b, c);
+            gen(a, -b, c);
+            gen(a, b, -c);
+            randomize();
+            gen(-a, -b, c);
+            gen(a, -b, -c);
+            gen(-a, b, -c);
+            gen(-a, -b, -c);
+        }
+
+        private void gen(int x, int y, int z) {
+            region.setType(middle.clone().add(x, y, z), materials[currentMaterial++]);
+            if (currentMaterial == materials.length) {
+                currentMaterial = 0;
+            }
+        }
+
+        private void randomize() {
+            currentMaterial = ThreadLocalRandom.current().nextInt(materials.length);
         }
     }
-
-    private void randomize() {
-        this.currentMaterial = ThreadLocalRandom.current().nextInt(this.materials.length);
-    }
-
 }
