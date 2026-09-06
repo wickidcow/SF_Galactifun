@@ -15,7 +15,7 @@ repositories {
 }
 
 group = "io.github.addoncommunity.galactifun"
-version = "1.0.5"
+version = "1.0.6"
 description = "Galactifun Legacy - space exploration and planetary gameplay for Slimefun Legacy"
 
 val slimefunCoreJar = providers.gradleProperty("slimefunCoreJar").orNull
@@ -28,7 +28,6 @@ dependencies {
     if (slimefunCoreJar != null) {
         compileOnly(files(slimefunCoreJar))
     } else {
-        // Developer fallback. CI and release builds pass the exact Slimefun Legacy JAR.
         compileOnly("maven.modrinth:slimefuncore:PEuZoZh4")
     }
     compileOnly("com.google.code.findbugs:jsr305:3.0.2")
@@ -44,8 +43,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
-// Paper 26.2 publishes Java 25 API classes. The build JVM can consume those classes while
-// Galactifun itself remains deliberately compiled to Java 21 bytecode for Legacy compatibility.
 configurations.configureEach {
     if (isCanBeResolved) {
         attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
@@ -55,8 +52,6 @@ configurations.configureEach {
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
     options.release.set(21)
-    // Keep the Legacy compatibility boundaries explicit and prevent deprecated APIs from
-    // silently creeping back into normal Galactifun code.
     options.compilerArgs.addAll(listOf(
         "-Xlint:deprecation",
         "-Xlint:removal",
@@ -82,7 +77,7 @@ tasks.processResources {
 
 tasks.shadowJar {
     archiveClassifier.set("")
-    archiveFileName.set("SF_Glactifun1.0.5.jar")
+    archiveFileName.set("SF_Glactifun1.0.6.jar")
     relocate("io.github.mooy1.infinitylib", "io.github.addoncommunity.galactifun.infinitylib")
     relocate("org.apache.commons.lang3", "io.github.addoncommunity.galactifun.commons.lang3")
     relocate("org.apache.commons.codec", "io.github.addoncommunity.galactifun.commons.codec")

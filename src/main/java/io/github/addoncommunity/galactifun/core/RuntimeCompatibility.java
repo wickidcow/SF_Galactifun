@@ -15,9 +15,6 @@ import io.github.thebusybiscuit.slimefun4.libraries.paperlib.PaperLib;
 
 /**
  * Startup and post-start compatibility checks for the maintained Galactifun build.
- *
- * <p>These checks are intentionally observational. They validate the runtime Galactifun is about to use,
- * report optional integrations, and fail startup only when a required platform or Slimefun linkage is not usable.
  */
 public final class RuntimeCompatibility {
 
@@ -35,7 +32,7 @@ public final class RuntimeCompatibility {
         plugin.getLogger().info(" - Java: " + Runtime.version());
 
         if (!PaperLib.isPaper()) {
-            plugin.getLogger().severe("Galactifun 1.0.5 requires Paper or a Paper-compatible fork such as Purpur.");
+            plugin.getLogger().severe("Galactifun 1.0.6 requires Paper or a Paper-compatible fork such as Purpur.");
             compatible = false;
         }
 

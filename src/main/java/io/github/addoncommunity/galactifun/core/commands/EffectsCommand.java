@@ -31,7 +31,7 @@ public final class EffectsCommand extends SubCommand {
             return;
         }
 
-        for (Map.Entry<AtmosphericEffect, Integer> entry : Galactifun.protectionManager().getEffectsAt(p.getLocation()).entrySet()) {
+        for (Map.Entry<AtmosphericEffect, Integer> entry : Galactifun.protectionManager().getEffectsAt(p).entrySet()) {
             Messages.yellow(p, String.format("Effect: %s, Level: %d",
                     entry.getKey().toString(),
                     entry.getValue()
