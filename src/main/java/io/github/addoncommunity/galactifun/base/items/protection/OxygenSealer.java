@@ -42,12 +42,31 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
     private static final String NO_OXYGEN = "no_oxygen";
     private static final Set<BlockPosition> allBlocks = new HashSet<>();
     private static final int OXYGEN_SLOT = 4;
-    private static int counter = 0;
+
     private final int range;
+    private final double superFanBonus;
+    private final int maxSuperFans;
+    private final int maxSealedBlocks;
+    private final int scanIntervalSlimefunTicks;
+    private int scanCounter;
 
     public OxygenSealer(SlimefunItemStack item, ItemStack[] recipe, int range) {
         super(CoreItemGroup.MACHINES, item, RecipeType.ENHANCED_CRAFTING_TABLE, recipe);
         this.range = range;
+
+        double configuredBonus = Galactifun.instance().getConfig()
+                .getDouble("oxygen-sealer.super-fan-range-bonus-percent", 15.0D);
+        this.superFanBonus = Math.max(0D, Math.min(configuredBonus, 500D)) / 100D;
+        this.maxSuperFans = Math.max(0, Galactifun.instance().getConfig()
+                .getInt("oxygen-sealer.maximum-super-fans", 4));
+        this.maxSealedBlocks = Math.max(0, Galactifun.instance().getConfig()
+                .getInt("oxygen-sealer.max-sealed-blocks", 300000));
+        int scanIntervalSeconds = Math.max(1, Math.min(
+                Galactifun.instance().getConfig().getInt("oxygen-sealer.scan-interval-seconds", 3),
+                60
+        ));
+        // Galactifun/Slimefun unique ticks run twice per second.
+        this.scanIntervalSlimefunTicks = scanIntervalSeconds * 2;
 
         addItemHandler(new BlockTicker() {
             @Override
@@ -70,14 +89,11 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
 
             @Override
             public void uniqueTick() {
-                // to prevent memory leaks if something happens (block breaks aren't the only thing that can)
                 allBlocks.removeIf(pos -> !(SFStorage.item(pos.toLocation()) instanceof OxygenSealer));
 
-                // every 6 slimefun ticks (every 3 seconds)
-                if (counter < 6) {
-                    counter++;
-                } else {
-                    counter = 0;
+                scanCounter++;
+                if (scanCounter >= scanIntervalSlimefunTicks) {
+                    scanCounter = 0;
                     OxygenSealer.this.uniqueTick();
                 }
             }
@@ -85,13 +101,11 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
     }
 
     private void uniqueTick() {
-        //noinspection deprecation
         Galactifun.protectionManager().resetOxygenBlocks();
         for (BlockPosition l : allBlocks) {
             updateProtections(l);
         }
     }
-
 
     @Override
     protected void onPlace(@Nonnull BlockPlaceEvent e, @Nonnull Block b) {
@@ -157,33 +171,37 @@ public final class OxygenSealer extends MenuBlock implements EnergyNetComponent,
             BSUtils.addBlockInfo(b, NO_OXYGEN, true);
             return;
         }
-        // to protect against people looping back and forth one oxygen tank and tricking it into thinking there is oxygen
+
         if (Galactifun.slimefunTickCount() % 18 == 0 || BSUtils.getStoredBoolean(l, NO_OXYGEN)) {
             menu.consumeItem(OXYGEN_SLOT);
             BSUtils.addBlockInfo(b, NO_OXYGEN, false);
         }
 
-        int range = this.range;
+        double effectiveRange = this.range;
+        int fans = 0;
         for (BlockFace face : Util.SURROUNDING_FACES) {
-            if (SFStorage.isItem(b.getRelative(face), BaseItems.SUPER_FAN.getItemId())) {
-                range += range * 0.15;
+            if (SFStorage.isItem(b.getRelative(face), BaseItems.SUPER_FAN.getItemId())
+                    && (this.maxSuperFans == 0 || fans < this.maxSuperFans)) {
+                effectiveRange += effectiveRange * this.superFanBonus;
+                fans++;
             }
         }
 
-        // check if sealed using flood fill
-        Optional<Set<BlockPosition>> returned = Util.floodFill(l, range);
-        // not sealed; continue on to the next block
+        int floodFillLimit = (int) Math.min(Integer.MAX_VALUE, Math.round(effectiveRange));
+        if (this.maxSealedBlocks > 0) {
+            floodFillLimit = Math.min(floodFillLimit, this.maxSealedBlocks);
+        }
+
+        Optional<Set<BlockPosition>> returned = Util.floodFill(l, floodFillLimit);
         if (returned.isEmpty()) {
             updateHologram(b, "&cArea Not Sealed or Too Big");
             return;
         }
 
         for (BlockPosition bp : returned.get()) {
-            // add a protection to the location
             Galactifun.protectionManager().addOxygenBlock(bp);
         }
 
         updateHologram(b, "&aOperational");
     }
-
 }
