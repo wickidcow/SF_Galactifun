@@ -62,10 +62,23 @@ public final class StargateRegistry {
         synchronized (LOCK) {
             ensureLoaded();
             String path = ROOT + address;
-            config.set(path + ".world", location.getWorld().getName());
-            config.set(path + ".x", location.getBlockX());
-            config.set(path + ".y", location.getBlockY());
-            config.set(path + ".z", location.getBlockZ());
+            String worldName = location.getWorld().getName();
+            int x = location.getBlockX();
+            int y = location.getBlockY();
+            int z = location.getBlockZ();
+
+            boolean changed = !worldName.equals(config.getString(path + ".world"))
+                    || x != config.getInt(path + ".x")
+                    || y != config.getInt(path + ".y")
+                    || z != config.getInt(path + ".z");
+            if (!changed) {
+                return;
+            }
+
+            config.set(path + ".world", worldName);
+            config.set(path + ".x", x);
+            config.set(path + ".y", y);
+            config.set(path + ".z", z);
             save();
         }
     }
@@ -104,7 +117,11 @@ public final class StargateRegistry {
     public static void unregister(@Nonnull String address) {
         synchronized (LOCK) {
             ensureLoaded();
-            config.set(ROOT + address, null);
+            String path = ROOT + address;
+            if (!config.contains(path)) {
+                return;
+            }
+            config.set(path, null);
             save();
         }
     }
