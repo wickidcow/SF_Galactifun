@@ -37,6 +37,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockGrowEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -359,11 +361,14 @@ public final class WorldManager implements Listener {
                 Scheduler.run(block::breakNaturally);
             } else {
                 int attempts = world.atmosphere().growthAttempts();
-                if (attempts != 0 && SlimefunTag.CROPS.isTagged(block.getType())) {
+                if (attempts > 0 && SlimefunTag.CROPS.isTagged(block.getType())) {
                     BlockData data = block.getBlockData();
                     if (data instanceof Ageable ageable) {
-                        ageable.setAge(ageable.getAge() + attempts);
-                        block.setBlockData(ageable);
+                        int nextAge = Math.min(ageable.getMaximumAge(), ageable.getAge() + attempts);
+                        if (nextAge != ageable.getAge()) {
+                            ageable.setAge(nextAge);
+                            block.setBlockData(ageable);
+                        }
                     }
                 }
             }
@@ -419,6 +424,30 @@ public final class WorldManager implements Listener {
                 }
             }
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    private void onPistonExtend(BlockPistonExtendEvent e) {
+        if (movesMappedPlanetBlock(e.getBlocks())) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    private void onPistonRetract(BlockPistonRetractEvent e) {
+        if (movesMappedPlanetBlock(e.getBlocks())) {
+            e.setCancelled(true);
+        }
+    }
+
+    private boolean movesMappedPlanetBlock(Collection<Block> blocks) {
+        for (Block block : blocks) {
+            AlienWorld world = this.getAlienWorld(block.getWorld());
+            if (world != null && world.getMappedItem(block) != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
