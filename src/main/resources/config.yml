@@ -22,6 +22,18 @@ integrations:
     # Multiverse entries are kept non-autoloading so Galactifun always supplies the real generator first.
     register-worlds: true
 
+player-safety:
+
+  # Seconds of emergency atmosphere/oxygen protection when a player has no breathable oxygen.
+  # This gives accidental visitors time to leave before Galactifun starts applying atmosphere damage.
+  # Set to 0 to disable the emergency reserve.
+  emergency-oxygen-buffer-seconds: 30
+
+  # If a player dies in a Galactifun planetary world, return them to their valid Earth/survival
+  # respawn point. If they do not have one in the configured Earth world, use the Earth world spawn.
+  # Planet beds will not overwrite the Earth respawn while this option is enabled.
+  return-to-earth-bed-on-planet-death: true
+
 aliens:
 
   # How often aliens tick in Minecraft ticks - there are 20 ticks in 1 second

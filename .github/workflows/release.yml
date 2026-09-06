@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. v1.0.2)'
+        description: 'Release tag (e.g. v1.0.3)'
         required: true
-        default: 'v1.0.2'
+        default: 'v1.0.3'
 
 permissions:
   contents: write
@@ -56,16 +56,16 @@ jobs:
       - name: Verify Release Jar
         shell: bash
         run: |
-          JAR="build/libs/SF_Glactifun1.0.2.jar"
+          JAR="build/libs/SF_Glactifun1.0.3.jar"
           test -f "$JAR"
-          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.2'"
+          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.3'"
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
             | grep -F "major version: 65"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/libs/SF_Glactifun1.0.2.jar
+          files: build/libs/SF_Glactifun1.0.3.jar
           generate_release_notes: true
           draft: false
           prerelease: false

@@ -92,6 +92,11 @@ public final class Atmosphere {
     }
 
     public void applyEffects(@Nonnull Player player) {
+        if (Galactifun.worldManager() != null
+                && Galactifun.worldManager().isEmergencyAtmosphereProtectionActive(player)) {
+            return;
+        }
+
         for (Map.Entry<AtmosphericEffect, Integer> entry : this.effects.entrySet()) {
             AtmosphericEffect effect = entry.getKey();
 
