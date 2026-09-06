@@ -9,10 +9,8 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
-
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -34,7 +32,6 @@ public final class Util {
 
     private Util() {
     }
-
 
     public static final double KM_PER_LY = 9.461e12;
     public static final Pattern COORD_PATTERN = Pattern.compile("^-?\\d+ -?\\d+$");
@@ -84,35 +81,56 @@ public final class Util {
     }
 
     /**
-     * Queue-based flood fill algorithm
+     * Queue-based flood fill algorithm.
+     *
+     * <p>The original implementation used {@link Queue#contains(Object)} for every neighboring block,
+     * making large sealed-room scans progressively more expensive. A separate hash set now tracks queued
+     * blocks in constant time. Conversion to {@link BlockPosition} is intentionally kept on the server
+     * thread rather than using a parallel stream over Bukkit block objects.</p>
      *
      * @param start starting block
      * @param max maximum traversed blocks
      *
-     * @return blocks traversed, or an empty optional if traversed blocks > max
+     * @return blocks traversed, or an empty optional if traversed blocks exceed {@code max}
      */
     @Nonnull
     public static Optional<Set<BlockPosition>> floodFill(@Nonnull Location start, int max) {
-        if (max == 0) return Optional.empty();
+        if (max <= 0) return Optional.empty();
 
         Set<Block> visited = new HashSet<>();
+        Set<Block> queued = new HashSet<>();
         Queue<Block> queue = new ArrayDeque<>();
-        queue.add(start.getBlock());
+
+        Block startBlock = start.getBlock();
+        queue.add(startBlock);
+        queued.add(startBlock);
 
         while (!queue.isEmpty()) {
-            if (visited.size() > max) return Optional.empty();
-
             Block next = queue.remove();
-            visited.add(next);
+            queued.remove(next);
+
+            if (!visited.add(next)) {
+                continue;
+            }
+            if (visited.size() > max) {
+                return Optional.empty();
+            }
+
             for (BlockFace face : ALL_SIDES) {
                 Block b = next.getRelative(face);
-                if (!IMPERMEABLE_BLOCKS.contains(b.getType()) && !visited.contains(b) && !queue.contains(b)) {
+                if (!IMPERMEABLE_BLOCKS.contains(b.getType())
+                        && !visited.contains(b)
+                        && queued.add(b)) {
                     queue.add(b);
                 }
             }
         }
 
-        return Optional.of(visited.parallelStream().map(BlockPosition::new).collect(Collectors.toSet()));
+        Set<BlockPosition> positions = new HashSet<>(visited.size());
+        for (Block block : visited) {
+            positions.add(new BlockPosition(block));
+        }
+        return Optional.of(positions);
     }
 
     /**
