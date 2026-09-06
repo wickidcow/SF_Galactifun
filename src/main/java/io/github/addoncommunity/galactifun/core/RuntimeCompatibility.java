@@ -35,7 +35,7 @@ public final class RuntimeCompatibility {
         plugin.getLogger().info(" - Java: " + Runtime.version());
 
         if (!PaperLib.isPaper()) {
-            plugin.getLogger().severe("Galactifun 1.0.1 requires Paper or a Paper-compatible fork such as Purpur.");
+            plugin.getLogger().severe("Galactifun 1.0.2 requires Paper or a Paper-compatible fork such as Purpur.");
             compatible = false;
         }
 
@@ -63,7 +63,7 @@ public final class RuntimeCompatibility {
         compatible &= rejectKnownConflict(plugin, "ChatColor2");
 
         reportOptionalPlugin(plugin, "Multiverse-Core",
-                "detected; Galactifun keeps ownership of its planetary generators and uses no hard Multiverse API linkage");
+                "detected; Galactifun will create its planet worlds first and then register them with Multiverse");
         reportOptionalPlugin(plugin, "BentoBox",
                 "detected; integration remains soft-linked and does not become a startup requirement");
 
