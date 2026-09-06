@@ -19,6 +19,7 @@ import io.github.thebusybiscuit.slimefun4.libraries.dough.collections.Randomized
  * An atmosphere of a celestial object, use {@link AtmosphereBuilder} to create
  *
  * @author Mooy1
+ * @author Seggan
  */
 @ParametersAreNonnullByDefault
 public final class Atmosphere {
@@ -30,7 +31,7 @@ public final class Atmosphere {
             .build();
     private static final double EARTH_CARBON_DIOXIDE = 0.0415;
     public static final Atmosphere EARTH_LIKE = new AtmosphereBuilder().enableWeather()
-            .add(Gas.NITROGEN, 77.084) // subtracted 1 to allow water to fit in
+            .add(Gas.NITROGEN, 77.084)
             .add(Gas.OXYGEN, 20.946)
             .add(Gas.WATER, 0.95)
             .add(Gas.ARGON, 0.934)
@@ -46,12 +47,8 @@ public final class Atmosphere {
     private final World.Environment environment;
     private final Map<AtmosphericEffect, Integer> effects;
     private final Map<Gas, Double> composition = new EnumMap<>(Gas.class);
-    /**
-     * Used for getting a gas proportionally to the composition
-     */
     private final RandomizedSet<Gas> weightedCompositionSet = new RandomizedSet<>();
 
-    // builder's constructor
     public Atmosphere(boolean weatherEnabled, boolean storming, boolean thundering,
                @Nonnull World.Environment environment, @Nonnull Map<Gas, Double> composition,
                double pressure, @Nonnull Map<AtmosphericEffect, Integer> effects) {
@@ -64,7 +61,6 @@ public final class Atmosphere {
         this.effects = effects;
         this.composition.putAll(composition);
 
-        // calculated values
         this.flammable = composition.getOrDefault(Gas.OXYGEN, 0.0) > 5;
         this.growthAttempts = (int) (this.pressurizedCompositionOf(Gas.CARBON_DIOXIDE) / EARTH_CARBON_DIOXIDE);
         for (Map.Entry<Gas, Double> entry : this.composition.entrySet()) {
@@ -100,7 +96,7 @@ public final class Atmosphere {
         for (Map.Entry<AtmosphericEffect, Integer> entry : this.effects.entrySet()) {
             AtmosphericEffect effect = entry.getKey();
 
-            int protection = Galactifun.protectionManager().protectionAt(player.getLocation(), effect);
+            int protection = Galactifun.protectionManager().protectionAt(player, effect);
             SpaceSuitStat stat = effect.stat();
             if (stat != null) {
                 protection += SpaceSuitProfile.get(player).getStat(stat);
