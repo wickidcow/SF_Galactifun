@@ -15,6 +15,7 @@ import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.api.universe.attributes.atmosphere.AtmosphericEffect;
 import io.github.addoncommunity.galactifun.api.universe.attributes.atmosphere.Gas;
 import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
+import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.data.persistent.PersistentDataAPI;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import net.kyori.adventure.text.Component;
@@ -36,14 +37,14 @@ public enum KnowledgeLevel {
     },
 
     /**
-     * Effects, daylight cycle, and atmospheric pressure
+     * Effects, daylight cycle, oxygen requirement, and atmospheric pressure
      */
     BASIC {
         @Override
         public void addLore(@Nonnull List<Component> lore, @Nonnull PlanetaryWorld world) {
             if (!world.atmosphere().effects().isEmpty()) {
                 lore.add(Component.empty());
-                lore.add(Component.text("Effects:").color(NamedTextColor.GRAY));
+                lore.add(Component.text("Environmental Hazards:").color(NamedTextColor.GRAY));
                 for (Map.Entry<AtmosphericEffect, Integer> effect : world.atmosphere().effects().entrySet()) {
                     lore.add(Component.text(effect.getKey().toString())
                             .color(NamedTextColor.RED)
@@ -54,12 +55,17 @@ public enum KnowledgeLevel {
             }
 
             lore.add(Component.empty());
+            lore.add(Component.text("Oxygen Tank: ")
+                    .color(NamedTextColor.GRAY)
+                    .append(Component.text(world.atmosphere().requiresOxygenTank() ? "REQUIRED" : "Not required")
+                            .color(world.atmosphere().requiresOxygenTank() ? NamedTextColor.RED : NamedTextColor.GREEN))
+            );
+
             lore.add(Component.text("Day/Night Cycle: ")
                     .color(NamedTextColor.GRAY)
                     .append(Component.text(world.dayCycle().description()))
             );
 
-            lore.add(Component.empty());
             lore.add(Component.text("Atmospheric Pressure: ")
                     .color(NamedTextColor.GRAY)
                     .append(Component.text(formatter.format(world.atmosphere().pressure())))
@@ -69,19 +75,17 @@ public enum KnowledgeLevel {
     },
 
     /**
-     * Atmospheric composition, gravity, and anything else we might add in the future
+     * Atmospheric composition, gravity, resources, and anything else we might add in the future
      */
     ADVANCED {
         @Override
         public void addLore(@Nonnull List<Component> lore, @Nonnull PlanetaryWorld world) {
             BASIC.addLore(lore, world);
 
-            // if pressure is not 0, accounting for double imprecision
             if (Math.abs(world.atmosphere().pressure()) > 1e-6) {
                 lore.add(Component.empty());
                 lore.add(Component.text("Atmospheric Composition:").color(NamedTextColor.GRAY));
 
-                // sort them by amount
                 LinkedHashMap<Gas, Double> gases = new LinkedHashMap<>(world.atmosphere().composition());
                 KnowledgeLevel.orderByValue(gases, Comparator.reverseOrder());
                 for (Map.Entry<Gas, Double> gas : gases.entrySet()) {
@@ -97,9 +101,17 @@ public enum KnowledgeLevel {
             lore.add(Component.empty());
             lore.add(Component.text("Gravity: ")
                     .color(NamedTextColor.GRAY)
-                    .append(Component.text(formatter.format(world.gravity().percent())))
-                    .append(Component.text(" g"))
+                    .append(Component.text(world.gravity().percent() + "% of Earth"))
             );
+
+            if (!world.resources().isEmpty()) {
+                lore.add(Component.empty());
+                lore.add(Component.text("Known GEO Resources:").color(NamedTextColor.GRAY));
+                world.resources().stream()
+                        .sorted(Comparator.comparing(GEOResource::getName))
+                        .forEach(resource -> lore.add(Component.text("• " + resource.getName())
+                                .color(NamedTextColor.AQUA)));
+            }
         }
     };
 
