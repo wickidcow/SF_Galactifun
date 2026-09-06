@@ -431,14 +431,19 @@ public final class WorldManager implements Listener {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Player p = e.getPlayer();
         PlanetaryWorld world = this.getWorld(p.getWorld());
-        if (world == null || world.atmosphere().environment() == World.Environment.NORMAL) return;
+        if (world == null || world == BaseUniverse.EARTH) return;
+
         Block b = e.getClickedBlock();
-        if (b != null && Tag.BEDS.isTagged(b.getType())) {
+        if (b == null || !Tag.BEDS.isTagged(b.getType())) return;
+
+        if (this.returnToEarthBedOnPlanetDeath) {
             e.setCancelled(true);
-            if (this.returnToEarthBedOnPlanetDeath && world != BaseUniverse.EARTH) {
-                Messages.yellow(p, "Planetary beds do not change your respawn. Your Earth respawn is kept for safety.");
-                return;
-            }
+            Messages.yellow(p, "Planetary beds do not change your respawn. Your Earth respawn is kept for safety.");
+            return;
+        }
+
+        if (world.atmosphere().environment() != World.Environment.NORMAL) {
+            e.setCancelled(true);
             p.setRespawnLocation(p.getLocation(), true);
             p.sendMessage("Respawn point set");
         }
