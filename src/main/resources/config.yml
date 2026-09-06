@@ -10,6 +10,18 @@ worlds:
   # If set to true, players can use Nether portals in Galactifun planet worlds.
   allow-nether-portals: false
 
+  # Keep Galactifun-created alien worlds loaded while the addon is enabled.
+  # World managers may register these worlds, but Galactifun must retain their runtime lifecycle.
+  protect-managed-worlds: true
+
+integrations:
+
+  multiverse:
+
+    # Register Galactifun-created alien worlds with Multiverse-Core after Galactifun loads them.
+    # Multiverse entries are kept non-autoloading so Galactifun always supplies the real generator first.
+    register-worlds: true
+
 aliens:
 
   # How often aliens tick in Minecraft ticks - there are 20 ticks in 1 second
