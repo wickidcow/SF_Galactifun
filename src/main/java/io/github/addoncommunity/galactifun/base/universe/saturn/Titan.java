@@ -51,6 +51,7 @@ public final class Titan extends AlienWorld {
 
     private volatile SimplexOctaveGenerator generator;
     private volatile TitanBiomeProvider provider;
+    private volatile boolean generationInitialized;
 
     public Titan(String name, PlanetaryType type, Orbit orbit, PlanetaryObject orbiting, ItemStack baseItem,
                  DayCycle dayCycle, Atmosphere atmosphere, Gravity gravity) {
@@ -126,13 +127,27 @@ public final class Titan extends AlienWorld {
         return this.provider;
     }
 
+    /**
+     * Initializes Titan's terrain and biome providers as one safely published unit for parallel
+     * Paper chunk generation. The generation parameters themselves are unchanged.
+     */
     private void init(@Nonnull WorldInfo info) {
-        if (this.generator == null) {
-            this.generator = new SimplexOctaveGenerator(info.getSeed(), 8);
-            this.generator.setScale(0.004);
+        if (this.generationInitialized) {
+            return;
         }
-        if (this.provider == null) {
-            this.provider = new TitanBiomeProvider();
+
+        synchronized (this) {
+            if (this.generationInitialized) {
+                return;
+            }
+
+            SimplexOctaveGenerator newGenerator = new SimplexOctaveGenerator(info.getSeed(), 8);
+            newGenerator.setScale(0.004);
+            TitanBiomeProvider newProvider = new TitanBiomeProvider();
+
+            this.generator = newGenerator;
+            this.provider = newProvider;
+            this.generationInitialized = true;
         }
     }
 
