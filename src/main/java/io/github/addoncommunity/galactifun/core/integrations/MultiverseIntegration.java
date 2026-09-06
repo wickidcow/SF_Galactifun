@@ -10,7 +10,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
+import org.bukkit.event.server.PluginEnableEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.plugin.Plugin;
 
@@ -20,10 +22,12 @@ import io.github.addoncommunity.galactifun.api.worlds.AlienWorld;
 /**
  * Optional Multiverse-Core integration.
  *
- * <p>Galactifun remains the owner of planetary world creation and generation. Multiverse is only
- * attached after the Bukkit worlds have already been created with Galactifun's generator. The
- * Multiverse entries are then marked as non-autoloading so that, on future restarts, Multiverse
- * waits for Galactifun to create the worlds again instead of trying to create them first.</p>
+ * <p>Galactifun remains the owner of planetary world creation and generation. Galactifun is ordered
+ * before Multiverse-Core, creates its Bukkit worlds with the correct custom generators, and then
+ * attaches those already-loaded worlds to Multiverse once its API is available.</p>
+ *
+ * <p>The Multiverse entries are marked as non-autoloading. On later restarts Galactifun therefore
+ * creates the planets first again, while Multiverse only attaches its management state afterward.</p>
  *
  * <p>This bridge intentionally uses reflection. Multiverse shades several API implementation types
  * in its release JAR, so avoiding a binary link keeps Multiverse optional and prevents a shaded API
@@ -46,15 +50,22 @@ public final class MultiverseIntegration {
             return;
         }
 
-        Plugin multiverse = Bukkit.getPluginManager().getPlugin(MULTIVERSE_PLUGIN);
-        if (multiverse == null || !multiverse.isEnabled()) {
-            return;
-        }
-
         // PlanetaryWorld stores the active Bukkit World object and Galactifun ticks that object directly.
         // Letting a world manager unload one while Galactifun is enabled would leave a stale runtime reference.
         Bukkit.getPluginManager().registerEvents(new ManagedWorldUnloadGuard(plugin), plugin);
 
+        Plugin multiverse = Bukkit.getPluginManager().getPlugin(MULTIVERSE_PLUGIN);
+        if (multiverse != null && multiverse.isEnabled()) {
+            registerWorlds(plugin, multiverse);
+            return;
+        }
+
+        // Normal 1.0.2 path: plugin.yml orders Galactifun before Multiverse-Core. The planets are
+        // therefore already correct before Multiverse reads/imports its world configuration.
+        Bukkit.getPluginManager().registerEvents(new MultiverseEnableListener(plugin), plugin);
+    }
+
+    private static void registerWorlds(Galactifun plugin, Plugin multiverse) {
         try {
             Bridge bridge = new Bridge(plugin, multiverse);
             int registered = 0;
@@ -80,6 +91,25 @@ public final class MultiverseIntegration {
             return invocation.getCause();
         }
         return throwable;
+    }
+
+    private static final class MultiverseEnableListener implements Listener {
+
+        private final Galactifun plugin;
+
+        private MultiverseEnableListener(Galactifun plugin) {
+            this.plugin = plugin;
+        }
+
+        @EventHandler(priority = EventPriority.MONITOR)
+        private void onPluginEnable(PluginEnableEvent event) {
+            if (!MULTIVERSE_PLUGIN.equals(event.getPlugin().getName())) {
+                return;
+            }
+
+            HandlerList.unregisterAll(this);
+            registerWorlds(plugin, event.getPlugin());
+        }
     }
 
     private static final class ManagedWorldUnloadGuard implements Listener {
