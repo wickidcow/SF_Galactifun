@@ -433,7 +433,7 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
         World world = hatch.getWorld();
         for (int y = hatch.getY() - 1; y > world.getMinHeight(); y--) {
             Block support = world.getBlockAt(hatch.getX(), y, hatch.getZ());
-            if (support.getLocation().isBuildable() || support.isLiquid()) {
+            if (support.isBuildable() || support.isLiquid()) {
                 Block landing = support.getRelative(BlockFace.UP);
                 if (landing.equals(hatch) || !landing.isEmpty()) {
                     return null;
