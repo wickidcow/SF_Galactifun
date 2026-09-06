@@ -19,13 +19,21 @@ import io.github.addoncommunity.galactifun.core.CoreItemGroup;
 import io.github.addoncommunity.galactifun.core.RuntimeCompatibility;
 import io.github.addoncommunity.galactifun.core.commands.AlienRemoveCommand;
 import io.github.addoncommunity.galactifun.core.commands.AlienSpawnCommand;
+import io.github.addoncommunity.galactifun.core.commands.DiscoveriesCommand;
 import io.github.addoncommunity.galactifun.core.commands.EffectsCommand;
 import io.github.addoncommunity.galactifun.core.commands.GalactiportCommand;
+import io.github.addoncommunity.galactifun.core.commands.OxygenZoneCommand;
 import io.github.addoncommunity.galactifun.core.commands.SealedCommand;
 import io.github.addoncommunity.galactifun.core.commands.StructureCommand;
 import io.github.addoncommunity.galactifun.core.integrations.MultiverseIntegration;
 import io.github.addoncommunity.galactifun.core.managers.AlienManager;
+import io.github.addoncommunity.galactifun.core.managers.AtmosphereCacheListener;
+import io.github.addoncommunity.galactifun.core.managers.DiscoveryManager;
+import io.github.addoncommunity.galactifun.core.managers.LandingHatchListener;
+import io.github.addoncommunity.galactifun.core.managers.LandingHatchManager;
+import io.github.addoncommunity.galactifun.core.managers.OxygenZoneManager;
 import io.github.addoncommunity.galactifun.core.managers.ProtectionManager;
+import io.github.addoncommunity.galactifun.core.managers.TravelManager;
 import io.github.addoncommunity.galactifun.core.managers.WorldManager;
 import io.github.mooy1.infinitylib.common.Scheduler;
 import io.github.mooy1.infinitylib.core.AbstractAddon;
@@ -38,6 +46,10 @@ public final class Galactifun extends AbstractAddon {
     private AlienManager alienManager;
     private WorldManager worldManager;
     private ProtectionManager protectionManager;
+    private OxygenZoneManager oxygenZoneManager;
+    private TravelManager travelManager;
+    private DiscoveryManager discoveryManager;
+    private LandingHatchManager landingHatchManager;
 
     private boolean shouldDisable = false;
 
@@ -61,6 +73,26 @@ public final class Galactifun extends AbstractAddon {
         return instance.protectionManager;
     }
 
+    @Nullable
+    public static OxygenZoneManager oxygenZoneManager() {
+        return instance == null ? null : instance.oxygenZoneManager;
+    }
+
+    @Nullable
+    public static TravelManager travelManager() {
+        return instance == null ? null : instance.travelManager;
+    }
+
+    @Nullable
+    public static DiscoveryManager discoveryManager() {
+        return instance == null ? null : instance.discoveryManager;
+    }
+
+    @Nullable
+    public static LandingHatchManager landingHatchManager() {
+        return instance == null ? null : instance.landingHatchManager;
+    }
+
     @Override
     protected void enable() {
         instance = this;
@@ -73,14 +105,18 @@ public final class Galactifun extends AbstractAddon {
 
         new Metrics(this, 11613);
 
-        // Auto updater removed for modern standalone builds.
-
         this.alienManager = new AlienManager(this);
         this.worldManager = new WorldManager(this);
         this.protectionManager = new ProtectionManager();
+        this.oxygenZoneManager = new OxygenZoneManager(this);
+        this.landingHatchManager = new LandingHatchManager(this);
 
         BaseAlien.setup(this.alienManager);
         BaseUniverse.setup(this);
+
+        // Travel and discovery resolve against the fully registered planetary worlds.
+        this.travelManager = new TravelManager(this);
+        this.discoveryManager = new DiscoveryManager(this);
 
         // Galactifun must create its custom worlds first. Multiverse, when present, is attached only
         // after the planetary registry is complete so it never replaces a Galactifun generator.
@@ -90,7 +126,11 @@ public final class Galactifun extends AbstractAddon {
         BaseMats.setup();
         BaseItems.setup(this);
 
-        // Verify the fully initialized world registry, then log the normal startup banner.
+        // Import existing loaded Landing Hatches and install low-overhead cache invalidation/listeners.
+        this.landingHatchManager.migrateLoadedHatches();
+        new LandingHatchListener();
+        new AtmosphereCacheListener();
+
         Scheduler.run(() -> {
             RuntimeCompatibility.postStartup(this);
             log(Level.INFO,
@@ -110,7 +150,9 @@ public final class Galactifun extends AbstractAddon {
                 .addSub(new AlienRemoveCommand())
                 .addSub(new StructureCommand(this))
                 .addSub(new SealedCommand())
-                .addSub(new EffectsCommand());
+                .addSub(new EffectsCommand())
+                .addSub(new DiscoveriesCommand())
+                .addSub(new OxygenZoneCommand());
     }
 
     @Override
@@ -123,8 +165,19 @@ public final class Galactifun extends AbstractAddon {
         if (this.alienManager != null) {
             this.alienManager.onDisable();
         }
+        if (this.discoveryManager != null) {
+            this.discoveryManager.onDisable();
+        }
+        if (this.oxygenZoneManager != null) {
+            this.oxygenZoneManager.onDisable();
+        }
+        if (this.landingHatchManager != null) {
+            this.landingHatchManager.onDisable();
+        }
+        if (this.protectionManager != null) {
+            this.protectionManager.resetOxygenBlocks();
+        }
 
-        // Do this last.
         instance = null;
     }
 
@@ -143,8 +196,6 @@ public final class Galactifun extends AbstractAddon {
             }
         }
 
-        // Multiverse and other world managers can request a generator by name before Bukkit resolves the world.
-        // Fall back to the Galactifun registry without hard-linking to an external world-management API.
         for (PlanetaryWorld planetaryWorld : this.worldManager.spaceWorlds()) {
             if (planetaryWorld instanceof AlienWorld alienWorld
                     && alienWorld.world() != null
