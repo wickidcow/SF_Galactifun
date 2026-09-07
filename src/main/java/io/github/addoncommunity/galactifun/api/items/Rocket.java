@@ -1,7 +1,6 @@
 package io.github.addoncommunity.galactifun.api.items;
 
 import io.github.addoncommunity.galactifun.util.SFStorage;
-
 import io.github.addoncommunity.galactifun.util.Messages;
 
 import java.util.ArrayList;
@@ -43,10 +42,11 @@ import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
 import io.github.addoncommunity.galactifun.base.BaseItems;
 import io.github.addoncommunity.galactifun.base.items.knowledge.KnowledgeLevel;
+import io.github.addoncommunity.galactifun.core.LandingSelector;
 import io.github.addoncommunity.galactifun.core.WorldSelector;
+import io.github.addoncommunity.galactifun.core.managers.LandingHatchManager.LandingTarget;
 import io.github.addoncommunity.galactifun.core.managers.RocketLaunchRegistry;
 import io.github.addoncommunity.galactifun.core.managers.RocketLaunchRegistry.State;
-import io.github.addoncommunity.galactifun.core.managers.WorldManager;
 import io.github.addoncommunity.galactifun.util.BSUtils;
 import io.github.addoncommunity.galactifun.util.Util;
 import io.github.addoncommunity.galactifun.util.TeleportAccess;
@@ -129,8 +129,6 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
             return true;
         }
 
-        // Persistent launch flags from an interrupted shutdown are not authoritative. If no live
-        // reservation exists, repair the stale state so a rocket can be used again after restart.
         if (BSUtils.getStoredBoolean(rocket.getLocation(), IS_LAUNCHING)) {
             BSUtils.addBlockInfo(rocket, IS_LAUNCHING, false);
             SFStorage.setData(rocket, LAUNCH_STATE, "READY");
@@ -148,81 +146,174 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
                 });
     }
 
-    private void openGUI(@Nonnull Player p, @Nonnull Block b) {
-        if (!SFStorage.isItem(b, this.getId())) return;
+    private void openGUI(@Nonnull Player player, @Nonnull Block rocket) {
+        if (!SFStorage.isItem(rocket, this.getId())) return;
 
-        if (isLaunchLocked(b)) {
-            Messages.red(p, "The rocket is already reserved or launching!");
+        if (isLaunchLocked(rocket)) {
+            Messages.red(player, "The rocket is already reserved or launching!");
             return;
         }
 
-        WorldManager worldManager = Galactifun.worldManager();
-        PlanetaryWorld currentWorld = worldManager.getWorld(p.getWorld());
+        PlanetaryWorld currentWorld = Galactifun.travelManager().resolveTravelOrigin(player.getWorld());
         if (currentWorld == null) {
-            Messages.red(p, "You cannot travel to space from this world!");
+            Messages.red(player, "You cannot travel to space from this world!");
             return;
         }
 
-        int fuel = BSUtils.getStoredInt(b.getLocation(), "fuel");
+        int fuel = BSUtils.getStoredInt(rocket.getLocation(), "fuel");
         if (fuel == 0) {
-            Messages.red(p, "The rocket has no fuel!");
+            Messages.red(player, "The rocket has no fuel!");
             return;
         }
 
-        String fuelType = SFStorage.getData(b.getLocation(), "fuelType");
+        String fuelType = SFStorage.getData(rocket.getLocation(), "fuelType");
         if (fuelType == null) {
-            Messages.red(p, "The rocket has no valid fuel type stored!");
+            Messages.red(player, "The rocket has no valid fuel type stored!");
             return;
         }
 
         Double efficiency = allowedFuels.get(fuelType);
         if (efficiency == null) {
-            Messages.red(p, "The rocket contains a fuel type it can no longer use.");
+            Messages.red(player, "The rocket contains a fuel type it can no longer use.");
             return;
         }
+
         double eff = efficiency;
         double maxDistance = maxDistanceFor(fuel, fuelType);
+        sendStatusSummary(player, rocket, fuel, fuelType, maxDistance);
+        openDestinationSelector(player, rocket, currentWorld, fuel, fuelType, eff, maxDistance);
+    }
 
-        sendStatusSummary(p, b, fuel, fuelType, maxDistance);
-
-        new WorldSelector((player, obj, lore) -> {
-            if (obj instanceof PlanetaryWorld) {
-                double distance = obj.distanceTo(currentWorld);
-                if (distance > maxDistance) return false;
+    private void openDestinationSelector(
+            @Nonnull Player player,
+            @Nonnull Block rocket,
+            @Nonnull PlanetaryWorld currentWorld,
+            int fuel,
+            @Nonnull String fuelType,
+            double efficiency,
+            double maxDistance
+    ) {
+        new WorldSelector((viewer, obj, lore) -> {
+            if (obj instanceof PlanetaryWorld destination) {
+                double distance = destination.distanceTo(currentWorld);
+                long required = (long) Math.ceil(distance / (DISTANCE_PER_FUEL * efficiency));
+                boolean permission = Galactifun.travelManager().canTravel(viewer, destination);
+                boolean inRange = distance <= maxDistance;
 
                 lore.add(Component.empty());
-                lore.add(Component.text()
-                        .color(NamedTextColor.YELLOW)
-                        .append(Component.text("Fuel required: "))
-                        .append(Component.text((long) Math.ceil(distance / (DISTANCE_PER_FUEL * eff))))
-                        .build());
+                lore.add(Component.text("Fuel required: " + required)
+                        .color(inRange ? NamedTextColor.YELLOW : NamedTextColor.RED));
+                if (!inRange) {
+                    lore.add(Component.text("OUT OF RANGE").color(NamedTextColor.RED));
+                }
+                if (!permission) {
+                    lore.add(Component.text("TRAVEL LOCKED").color(NamedTextColor.RED));
+                    lore.add(Component.text("Permission: " + Galactifun.travelManager().permissionNode(destination))
+                            .color(NamedTextColor.DARK_GRAY));
+                }
             }
             return true;
-        }, (player, destination) -> {
-            player.closeInventory();
-
-            if (!reserveLaunch(p, b)) {
-                Messages.red(p, "Another player reserved this rocket first.");
+        }, (viewer, destination) -> {
+            double distance = destination.distanceTo(currentWorld);
+            if (distance > maxDistance) {
+                Messages.red(viewer, "That destination is outside this rocket's current fuel range.");
+                return;
+            }
+            if (!Galactifun.travelManager().canTravel(viewer, destination)) {
+                Messages.red(viewer, "You do not have permission to travel to " + destination.name() + ".");
                 return;
             }
 
-            int usedFuel = Math.min(
-                    fuel,
-                    (int) Math.ceil(destination.distanceTo(currentWorld) / (DISTANCE_PER_FUEL * eff))
-            );
-            scheduleReservationTimeout(p, b);
-            Messages.yellow(p, "Destination reserved. Enter landing coordinates as <x> <z> (for example -123 456), or type anything else to cancel:");
+            openLandingSelector(viewer, rocket, currentWorld, destination, fuel, fuelType, efficiency, maxDistance);
+        }).open(player);
+    }
 
-            ChatUtils.awaitInput(p, input -> handleDestinationInput(
-                    p,
-                    b,
-                    destination,
-                    input,
-                    fuelType,
-                    fuel,
-                    usedFuel
-            ));
-        }).open(p);
+    private void openLandingSelector(
+            @Nonnull Player player,
+            @Nonnull Block rocket,
+            @Nonnull PlanetaryWorld currentWorld,
+            @Nonnull PlanetaryWorld destination,
+            int fuel,
+            @Nonnull String fuelType,
+            double efficiency,
+            double maxDistance
+    ) {
+        List<LandingTarget> targets = Galactifun.landingHatchManager().targets(destination.world());
+        new LandingSelector(
+                destination,
+                targets,
+                viewer -> openDestinationSelector(viewer, rocket, currentWorld, fuel, fuelType, efficiency, maxDistance),
+                (viewer, target) -> startRegisteredLanding(viewer, rocket, currentWorld, destination, target, fuel, fuelType, efficiency),
+                viewer -> startManualLanding(viewer, rocket, currentWorld, destination, fuel, fuelType, efficiency)
+        ).open(player);
+    }
+
+    private void startManualLanding(
+            @Nonnull Player player,
+            @Nonnull Block rocket,
+            @Nonnull PlanetaryWorld currentWorld,
+            @Nonnull PlanetaryWorld destination,
+            int fuel,
+            @Nonnull String fuelType,
+            double efficiency
+    ) {
+        player.closeInventory();
+        if (!reserveLaunch(player, rocket)) {
+            Messages.red(player, "Another player reserved this rocket first.");
+            return;
+        }
+
+        int usedFuel = fuelRequired(currentWorld, destination, fuel, efficiency);
+        scheduleReservationTimeout(player, rocket);
+        Messages.yellow(player, "Destination reserved. Enter landing coordinates as <x> <z> (for example -123 456), or type anything else to cancel:");
+        ChatUtils.awaitInput(player, input -> handleDestinationInput(
+                player,
+                rocket,
+                destination,
+                input,
+                fuelType,
+                fuel,
+                usedFuel
+        ));
+    }
+
+    private void startRegisteredLanding(
+            @Nonnull Player player,
+            @Nonnull Block rocket,
+            @Nonnull PlanetaryWorld currentWorld,
+            @Nonnull PlanetaryWorld destination,
+            @Nonnull LandingTarget target,
+            int fuel,
+            @Nonnull String fuelType,
+            double efficiency
+    ) {
+        player.closeInventory();
+        if (!reserveLaunch(player, rocket)) {
+            Messages.red(player, "Another player reserved this rocket first.");
+            return;
+        }
+
+        int usedFuel = fuelRequired(currentWorld, destination, fuel, efficiency);
+        scheduleReservationTimeout(player, rocket);
+
+        Location hatchLocation = Galactifun.landingHatchManager().location(target);
+        if (hatchLocation == null || hatchLocation.getWorld() == null) {
+            Messages.red(player, "That Landing Hatch world is not loaded.");
+            releaseLaunch(rocket, player.getUniqueId());
+            return;
+        }
+
+        World world = hatchLocation.getWorld();
+        world.getChunkAtAsync(target.x() >> 4, target.z() >> 4).whenComplete((chunk, throwable) ->
+                Scheduler.run(() -> {
+                    if (throwable != null) {
+                        Messages.red(player, "The Landing Hatch chunk could not be loaded.");
+                        releaseLaunch(rocket, player.getUniqueId());
+                        return;
+                    }
+                    prepareRegisteredLanding(player, rocket, destination, target, fuelType, fuel, usedFuel);
+                })
+        );
     }
 
     private void handleDestinationInput(
@@ -247,17 +338,141 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
             return;
         }
 
+        String[] coords = Util.SPACE_PATTERN.split(input);
+        int x;
+        int z;
         try {
-            String[] coords = Util.SPACE_PATTERN.split(input);
+            x = Integer.parseInt(coords[0]);
+            z = Integer.parseInt(coords[1]);
+        } catch (RuntimeException exception) {
+            Messages.red(player, "Launch cancelled because the coordinates were invalid.");
+            releaseLaunch(rocket, owner);
+            return;
+        }
+
+        destination.world().getChunkAtAsync(x >> 4, z >> 4).whenComplete((chunk, throwable) ->
+                Scheduler.run(() -> {
+                    if (throwable != null) {
+                        Messages.red(player, "The destination chunk could not be loaded.");
+                        releaseLaunch(rocket, owner);
+                        return;
+                    }
+                    prepareManualLanding(player, rocket, destination, x, z, fuelType, fuel, usedFuel);
+                })
+        );
+    }
+
+    private void prepareManualLanding(
+            @Nonnull Player player,
+            @Nonnull Block rocket,
+            @Nonnull PlanetaryWorld destination,
+            int x,
+            int z,
+            @Nonnull String fuelType,
+            int fuel,
+            int usedFuel
+    ) {
+        if (!reservationStillValid(player, rocket, destination)) {
+            return;
+        }
+
+        try {
             Block destBlock = Util.getHighestBlockAt(
                     destination.world(),
-                    Integer.parseInt(coords[0]),
-                    Integer.parseInt(coords[1]),
+                    x,
+                    z,
                     location -> (location.isBuildable() || location.isLiquid())
                             && !SFStorage.isItem(location, BaseItems.LANDING_HATCH.getItemId())
             );
-            destBlock.getChunk().load();
+            completeLandingPreparation(player, rocket, destination, destBlock, fuelType, fuel, usedFuel);
+        } catch (RuntimeException exception) {
+            abortValidation(player, rocket, exception);
+        }
+    }
 
+    private void prepareRegisteredLanding(
+            @Nonnull Player player,
+            @Nonnull Block rocket,
+            @Nonnull PlanetaryWorld destination,
+            @Nonnull LandingTarget target,
+            @Nonnull String fuelType,
+            int fuel,
+            int usedFuel
+    ) {
+        if (!reservationStillValid(player, rocket, destination)) {
+            return;
+        }
+
+        Location hatchLocation = Galactifun.landingHatchManager().location(target);
+        if (hatchLocation == null || hatchLocation.getWorld() == null) {
+            Messages.red(player, "That Landing Hatch is no longer available.");
+            releaseLaunch(rocket, player.getUniqueId());
+            return;
+        }
+
+        Block hatch = hatchLocation.getBlock();
+        if (!SFStorage.isItem(hatch, BaseItems.LANDING_HATCH.getItemId())) {
+            Galactifun.landingHatchManager().unregister(hatch);
+            Messages.red(player, "That registered Landing Hatch no longer exists.");
+            releaseLaunch(rocket, player.getUniqueId());
+            return;
+        }
+
+        Block destBlock = landingBlockBelow(hatch);
+        if (destBlock == null) {
+            Messages.red(player, "That Landing Hatch needs clear landing space beneath it.");
+            releaseLaunch(rocket, player.getUniqueId());
+            return;
+        }
+
+        completeLandingPreparation(player, rocket, destination, destBlock, fuelType, fuel, usedFuel);
+    }
+
+    @Nullable
+    private static Block landingBlockBelow(@Nonnull Block hatch) {
+        World world = hatch.getWorld();
+        for (int y = hatch.getY() - 1; y > world.getMinHeight(); y--) {
+            Block support = world.getBlockAt(hatch.getX(), y, hatch.getZ());
+            if (support.isBuildable() || support.isLiquid()) {
+                Block landing = support.getRelative(BlockFace.UP);
+                if (landing.equals(hatch) || !landing.isEmpty()) {
+                    return null;
+                }
+                return landing;
+            }
+        }
+        return null;
+    }
+
+    private boolean reservationStillValid(
+            @Nonnull Player player,
+            @Nonnull Block rocket,
+            @Nonnull PlanetaryWorld destination
+    ) {
+        UUID owner = player.getUniqueId();
+        if (!RocketLaunchRegistry.isOwnedBy(rocketKey(rocket), owner, State.RESERVED)) {
+            Messages.red(player, "This rocket reservation expired or was cancelled.");
+            return false;
+        }
+        if (!Galactifun.travelManager().canTravel(player, destination)) {
+            Messages.red(player, "Your permission to travel to that destination is no longer valid.");
+            releaseLaunch(rocket, owner);
+            return false;
+        }
+        return true;
+    }
+
+    private void completeLandingPreparation(
+            @Nonnull Player player,
+            @Nonnull Block rocket,
+            @Nonnull PlanetaryWorld destination,
+            @Nonnull Block destBlock,
+            @Nonnull String fuelType,
+            int fuel,
+            int usedFuel
+    ) {
+        UUID owner = player.getUniqueId();
+        try {
             if (!destBlock.getWorld().getWorldBorder().isInside(destBlock.getLocation())) {
                 Messages.red(player, "Destination is outside of world border");
                 releaseLaunch(rocket, owner);
@@ -278,23 +493,45 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
             if (down.getType() == Material.CHEST) {
                 destBlock = down;
             } else {
+                if (!destBlock.isEmpty()) {
+                    Messages.red(player, "The landing location is obstructed.");
+                    releaseLaunch(rocket, owner);
+                    return;
+                }
                 destBlock.setType(Material.CHEST);
             }
 
             int remainingFuel = Math.max(0, fuel - usedFuel);
-            ItemStack fuelLeft = remainingFuel > 0
-                    ? StackUtils.itemByIdOrType(fuelType).asQuantity(remainingFuel)
+            ItemStack fuelItem = StackUtils.itemByIdOrType(fuelType);
+            ItemStack fuelLeft = remainingFuel > 0 && fuelItem != null
+                    ? fuelItem.asQuantity(remainingFuel)
                     : null;
             launch(player, rocket, fuelLeft, destination, destBlock);
         } catch (RuntimeException exception) {
-            releaseLaunch(rocket, owner);
-            Galactifun.instance().getLogger().log(
-                    java.util.logging.Level.SEVERE,
-                    "Rocket launch validation failed for " + player.getName(),
-                    exception
-            );
-            Messages.red(player, "Launch aborted safely because the destination could not be prepared.");
+            abortValidation(player, rocket, exception);
         }
+    }
+
+    private static int fuelRequired(
+            @Nonnull PlanetaryWorld currentWorld,
+            @Nonnull PlanetaryWorld destination,
+            int fuel,
+            double efficiency
+    ) {
+        return Math.min(
+                fuel,
+                (int) Math.ceil(destination.distanceTo(currentWorld) / (DISTANCE_PER_FUEL * efficiency))
+        );
+    }
+
+    private static void abortValidation(@Nonnull Player player, @Nonnull Block rocket, @Nonnull RuntimeException exception) {
+        releaseLaunch(rocket, player.getUniqueId());
+        Galactifun.instance().getLogger().log(
+                java.util.logging.Level.SEVERE,
+                "Rocket launch validation failed for " + player.getName(),
+                exception
+        );
+        Messages.red(player, "Launch aborted safely because the destination could not be prepared.");
     }
 
     private boolean reserveLaunch(@Nonnull Player player, @Nonnull Block rocket) {
@@ -391,6 +628,12 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
             return;
         }
 
+        if (!Galactifun.travelManager().canTravel(p, destination)) {
+            Messages.red(p, "Launch aborted because travel permission changed.");
+            releaseLaunch(rocket, owner);
+            return;
+        }
+
         if (destBlock.getType() != Material.CHEST
                 || !Slimefun.getProtectionManager().hasPermission(p, destBlock, Interaction.PLACE_BLOCK)) {
             Messages.red(p, "Launch aborted safely because the landing chest is no longer available.");
@@ -425,8 +668,6 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
         Location sourceLocation = rocket.getLocation();
         World playerWorld = sourceLocation.getWorld();
 
-        // Remove the source before delivering its contents. If anything after this point cannot enter
-        // the chest, leftovers are dropped at the destination instead of leaving a duplicate source.
         rocket.setType(Material.AIR);
         SFStorage.remove(rocket);
         RocketLaunchRegistry.release(key, owner);

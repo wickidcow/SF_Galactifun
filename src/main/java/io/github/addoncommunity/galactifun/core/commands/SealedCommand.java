@@ -9,6 +9,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 
 import io.github.addoncommunity.galactifun.Galactifun;
+import io.github.addoncommunity.galactifun.base.items.protection.OxygenSealer;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -20,14 +21,22 @@ import io.github.thebusybiscuit.slimefun4.libraries.dough.blocks.BlockPosition;
 public final class SealedCommand extends SubCommand {
 
     public SealedCommand() {
-        super("sealed", "Checks if the area is sealed", false);
+        super("sealed", "Checks if the area is sealed or shows Oxygen Sealer diagnostics", false);
     }
 
     @Override
     public void execute(@Nonnull CommandSender commandSender, @Nonnull String[] strings) {
         if (!(commandSender instanceof Player p)) return;
         if (strings.length != 1) {
-            Messages.red(p, "Usage: /galactifun sealed <range>");
+            Messages.red(p, "Usage: /galactifun sealed <range|debug>");
+            return;
+        }
+
+        if ("debug".equalsIgnoreCase(strings[0])) {
+            Messages.yellow(p, "Atmosphere diagnostics:");
+            for (String line : OxygenSealer.diagnostics(p)) {
+                p.sendMessage("- " + line);
+            }
             return;
         }
 
@@ -59,7 +68,8 @@ public final class SealedCommand extends SubCommand {
 
     @Override
     public void complete(@Nonnull CommandSender commandSender, @Nonnull String[] strings, @Nonnull List<String> list) {
-
+        if (strings.length == 1) {
+            list.add("debug");
+        }
     }
-
 }

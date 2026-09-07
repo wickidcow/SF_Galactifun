@@ -4,7 +4,7 @@ auto-update: true
 worlds:
 
   # The name of your world that is Earth.
-  # This should be the name main world where people work on stuff and make bases.
+  # This should be the main survival world where normal Earth respawns are kept.
   earth-name: world
 
   # If set to true, players can use Nether portals in Galactifun planet worlds.
@@ -33,6 +33,39 @@ player-safety:
   # respawn point. If they do not have one in the configured Earth world, use the Earth world spawn.
   # Planet beds will not overwrite the Earth respawn while this option is enabled.
   return-to-earth-bed-on-planet-death: true
+
+travel:
+
+  # Extra normal Bukkit worlds that may launch rockets as if they were Earth.
+  # These worlds are NOT converted into Galactifun worlds and do not change death/atmosphere behavior.
+  additional-earth-launch-worlds: []
+
+  # Check galactifun.travel.<planet_id> before allowing a rocket to travel to a planet.
+  enforce-planet-permissions: true
+
+  # Backward-compatible default: if a player has no explicit setting for a planet permission,
+  # allow the trip. Explicit false permissions from LuckPerms/etc. are still respected.
+  permission-default-allow: true
+
+discovery:
+
+  # Persist each player's first visit to every Galactifun planetary world.
+  enabled: true
+
+  first-visit:
+
+    # Tell the player when a planet is recorded for the first time.
+    show-message: true
+
+    # Console commands run for every first visit. Placeholders:
+    # {player}, {uuid}, {planet}, {planet_id}
+    global-commands: []
+
+    # Optional commands per planet ID, for example:
+    # commands:
+    #   mars:
+    #     - "lp user {player} permission set galactifun.visited.mars true"
+    commands: {}
 
 aliens:
 
@@ -77,9 +110,12 @@ oxygen-sealer:
   # Set to 0 to disable this extra cap.
   max-sealed-blocks: 300000
 
-  # Recalculate sealed rooms at this interval. Higher values reduce background work but make room
-  # changes take longer to be noticed.
+  # How often Sealer state is checked. Cached sealed rooms are reused between scans unless dirtied.
   scan-interval-seconds: 3
+
+  # Even unchanged rooms are revalidated occasionally as a safety net for block changes made by
+  # other plugins that do not fire normal Bukkit block events.
+  safety-refresh-seconds: 60
 
 other:
 

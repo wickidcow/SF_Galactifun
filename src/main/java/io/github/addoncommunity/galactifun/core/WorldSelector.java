@@ -7,7 +7,9 @@ import java.util.Map;
 import java.util.UUID;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -17,6 +19,7 @@ import io.github.addoncommunity.galactifun.api.universe.UniversalObject;
 import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
 import io.github.addoncommunity.galactifun.base.BaseUniverse;
 import io.github.addoncommunity.galactifun.base.items.knowledge.KnowledgeLevel;
+import io.github.addoncommunity.galactifun.util.CustomItemStack;
 import io.github.addoncommunity.galactifun.util.Util;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
@@ -24,15 +27,22 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 /**
- * Class for exploring the universe through {@link ChestMenu}s
- *
- * @author Mooy1
- * @author Seggan
+ * Class for exploring the universe through fixed-layout {@link ChestMenu}s.
  */
-@SuppressWarnings("deprecation") // Slimefun Legacy 4.1.45 ChestMenu compatibility boundary.
+@SuppressWarnings("deprecation")
 public final class WorldSelector {
 
-    private static final int MAX_OBJECTS_PER_PAGE = 52;
+    private static final int OBJECTS_PER_PAGE = 45;
+    private static final int BACK_SLOT = 45;
+    private static final int PREVIOUS_SLOT = 48;
+    private static final int CURRENT_SLOT = 49;
+    private static final int NEXT_SLOT = 50;
+    private static final int[] NAV_BACKGROUND = {46, 47, 51, 52, 53};
+
+    private static final ItemStack NAV_BACKGROUND_ITEM = new CustomItemStack(
+            Material.BLACK_STAINED_GLASS_PANE,
+            " "
+    );
 
     private final Map<UUID, UniversalObject> history = new HashMap<>();
 
@@ -63,149 +73,204 @@ public final class WorldSelector {
     }
 
     public void open(@Nonnull Player p) {
-        open(p, this.history.computeIfAbsent(p.getUniqueId(), k -> BaseUniverse.THE_UNIVERSE), false);
+        open(p, this.history.computeIfAbsent(p.getUniqueId(), k -> BaseUniverse.THE_UNIVERSE), false, 0);
     }
 
-    private void open(@Nonnull Player p, @Nonnull UniversalObject object, boolean history) {
-
+    private void open(@Nonnull Player p, @Nonnull UniversalObject object, boolean remember, int page) {
         List<UniversalObject> orbiters = object.orbiters();
-
-        // this shouldn't happen
-        if (orbiters.size() == 0) {
-            open(p, BaseUniverse.THE_UNIVERSE, true);
+        if (orbiters.isEmpty()) {
+            UniversalObject parent = object.orbiting();
+            if (parent != null) {
+                open(p, parent, true, 0);
+            }
             return;
         }
 
-        // add to history
-        if (history) {
+        if (remember) {
             this.history.put(p.getUniqueId(), object);
         }
 
-        // setup menu
+        int pageCount = Math.max(1, (orbiters.size() + OBJECTS_PER_PAGE - 1) / OBJECTS_PER_PAGE);
+        int safePage = Math.max(0, Math.min(page, pageCount - 1));
+
         ChestMenu menu = new ChestMenu(object.name());
         menu.setEmptySlotsClickable(false);
 
-        // back button
-        menu.addItem(0, ChestMenuUtils.getBackButton(p));
+        for (int slot : NAV_BACKGROUND) {
+            menu.addItem(slot, NAV_BACKGROUND_ITEM, ChestMenuUtils.getEmptyClickHandler());
+        }
+
+        menu.addItem(BACK_SLOT, ChestMenuUtils.getBackButton(p));
         if (object.orbiting() == null) {
-            menu.addMenuClickHandler(0, exitHandler);
+            menu.addMenuClickHandler(BACK_SLOT, exitHandler);
         } else {
-            menu.addMenuClickHandler(0, (p1, slot, item, a) -> {
-                open(p1, object.orbiting(), true);
+            menu.addMenuClickHandler(BACK_SLOT, (player, slot, item, action) -> {
+                open(player, object.orbiting(), true, 0);
                 return false;
             });
         }
 
-        PlanetaryWorld current = Galactifun.worldManager().getWorld(p.getWorld());
-        boolean known = current != null;
-
-        int offset = 1;
-
-        if (object instanceof PlanetaryWorld world) {
-            ItemStack item = world.item();
-            offset++;
-
-            if (known) {
-                double distance = world.distanceTo(current);
-
-                // add distance from current
-                ItemMeta meta = item.getItemMeta();
-                List<Component> lore = meta.lore();
-                if (lore != null) {
-                    lore.remove(lore.size() - 1);
-
-                    if (distance > 0) {
-                        lore.add(Component.text("Distance: " + (distance < .5
-                                ? "%.3f Kilometers".formatted(distance * Util.KM_PER_LY)
-                                : distance + " Light Years")
-                        ).color(NamedTextColor.GRAY));
-                    } else {
-                        lore.add(Component.text("You are here!").color(NamedTextColor.GRAY));
-                    }
-
-                    KnowledgeLevel.get(p, world).addLore(lore, world);
-
-                    if (modifier.modifyItem(p, world, lore)) {
-                        meta.lore(lore);
-                        item = item.clone();
-                        item.setItemMeta(meta);
-                    }
-                }
-            }
-
-            menu.addItem(1, item, (player, i, itemStack, clickAction) -> {
-                selectHandler.onSelect(player, world);
+        if (safePage > 0) {
+            menu.addItem(PREVIOUS_SLOT, new CustomItemStack(
+                    Material.ARROW,
+                    "&fPrevious Page",
+                    "&7Page " + safePage + " / " + pageCount
+            ), (player, slot, item, action) -> {
+                open(player, object, false, safePage - 1);
                 return false;
             });
+        } else {
+            menu.addItem(PREVIOUS_SLOT, NAV_BACKGROUND_ITEM, ChestMenuUtils.getEmptyClickHandler());
         }
 
-        // objects
-        for (int i = 0; i < Math.min(MAX_OBJECTS_PER_PAGE, orbiters.size()); i++) {
-            UniversalObject orbiter = orbiters.get(i);
+        if (safePage + 1 < pageCount) {
+            menu.addItem(NEXT_SLOT, new CustomItemStack(
+                    Material.ARROW,
+                    "&fNext Page",
+                    "&7Page " + (safePage + 2) + " / " + pageCount
+            ), (player, slot, item, action) -> {
+                open(player, object, false, safePage + 1);
+                return false;
+            });
+        } else {
+            menu.addItem(NEXT_SLOT, NAV_BACKGROUND_ITEM, ChestMenuUtils.getEmptyClickHandler());
+        }
+
+        PlanetaryWorld current = resolveCurrentWorld(p);
+        addCurrentObject(menu, p, object, current, safePage, pageCount);
+
+        int from = safePage * OBJECTS_PER_PAGE;
+        int to = Math.min(orbiters.size(), from + OBJECTS_PER_PAGE);
+        for (int index = from; index < to; index++) {
+            int slot = index - from;
+            UniversalObject orbiter = orbiters.get(index);
+
             if (orbiter instanceof PlanetaryWorld planetaryWorld && !planetaryWorld.enabled()) {
-                offset--;
                 continue;
             }
 
-            ItemStack item = orbiter.item();
-
-            if (known) {
-                double distance = orbiter.distanceTo(current);
-
-                // add distance from current
-                ItemMeta meta = item.getItemMeta();
-                List<Component> lore = meta.lore();
-                if (lore != null) {
-                    lore.remove(lore.size() - 1);
-
-                    if (distance > 0) {
-                        lore.add(Component.text("Distance: " + Util.formatDistance(distance))
-                                .color(NamedTextColor.GRAY));
-                    } else {
-                        lore.add(Component.text("You are here!").color(NamedTextColor.GRAY));
-                    }
-
-                    if (orbiter instanceof PlanetaryWorld planetaryWorld) {
-                        KnowledgeLevel.get(p, planetaryWorld).addLore(lore, planetaryWorld);
-                    }
-
-                    if (!modifier.modifyItem(p, orbiter, lore)) continue;
-
-                    meta.lore(lore);
-                    item = item.clone();
-                    item.setItemMeta(meta);
-                }
+            ItemStack item = buildDisplayItem(p, orbiter, current);
+            if (item == null) {
+                continue;
             }
-            if (orbiter instanceof PlanetaryWorld || showObject(p, orbiter)) {
-                menu.addItem(i + offset, item);
-                if (orbiter.orbiters().size() == 0) {
-                    menu.addMenuClickHandler(i + offset, (clicker, i1, s, a) -> {
-                        // 99% true
-                        if (orbiter instanceof PlanetaryWorld planetaryWorld) {
-                            selectHandler.onSelect(clicker, planetaryWorld);
-                        }
-                        return false;
-                    });
-                } else {
-                    menu.addMenuClickHandler(i + offset, (p1, slot, item1, a) -> {
-                        open(p1, orbiter, true);
-                        return false;
-                    });
-                }
+
+            if (!(orbiter instanceof PlanetaryWorld) && !showObject(p, orbiter)) {
+                continue;
+            }
+
+            menu.addItem(slot, item);
+            if (orbiter.orbiters().isEmpty()) {
+                menu.addMenuClickHandler(slot, (clicker, clickedSlot, clickedItem, action) -> {
+                    if (orbiter instanceof PlanetaryWorld planetaryWorld) {
+                        selectHandler.onSelect(clicker, planetaryWorld);
+                    }
+                    return false;
+                });
             } else {
-                offset--;
+                menu.addMenuClickHandler(slot, (clicker, clickedSlot, clickedItem, action) -> {
+                    open(clicker, orbiter, true, 0);
+                    return false;
+                });
             }
         }
 
         menu.open(p);
-
     }
 
-    private boolean showObject(Player p, UniversalObject object) {
+    private void addCurrentObject(
+            @Nonnull ChestMenu menu,
+            @Nonnull Player player,
+            @Nonnull UniversalObject object,
+            @Nullable PlanetaryWorld current,
+            int page,
+            int pageCount
+    ) {
+        if (object instanceof PlanetaryWorld planetaryWorld) {
+            ItemStack currentItem = buildDisplayItem(player, planetaryWorld, current);
+            if (currentItem != null) {
+                menu.addItem(CURRENT_SLOT, currentItem, (clicker, slot, item, action) -> {
+                    selectHandler.onSelect(clicker, planetaryWorld);
+                    return false;
+                });
+                return;
+            }
+        }
+
+        menu.addItem(CURRENT_SLOT, new CustomItemStack(
+                Material.COMPASS,
+                "&f" + object.name(),
+                "&7Page " + (page + 1) + " / " + pageCount,
+                "&8Navigation controls stay in this row"
+        ), ChestMenuUtils.getEmptyClickHandler());
+    }
+
+    @Nullable
+    private ItemStack buildDisplayItem(
+            @Nonnull Player player,
+            @Nonnull UniversalObject object,
+            @Nullable PlanetaryWorld current
+    ) {
+        ItemStack item = object.item();
+        if (item == null) {
+            return null;
+        }
+
+        item = item.clone();
+        ItemMeta meta = item.getItemMeta();
+        List<Component> lore = meta.lore();
+        lore = lore == null ? new ArrayList<>() : new ArrayList<>(lore);
+
+        if (!lore.isEmpty()) {
+            lore.remove(lore.size() - 1);
+        }
+
+        if (current != null) {
+            double distance = object.distanceTo(current);
+            if (distance > 0) {
+                lore.add(Component.text("Distance: " + Util.formatDistance(distance)).color(NamedTextColor.GRAY));
+            } else {
+                lore.add(Component.text("You are here!").color(NamedTextColor.GRAY));
+            }
+        }
+
+        if (object instanceof PlanetaryWorld planetaryWorld) {
+            KnowledgeLevel.get(player, planetaryWorld).addLore(lore, planetaryWorld);
+
+            if (Galactifun.discoveryManager() != null && Galactifun.discoveryManager().isEnabled()) {
+                boolean discovered = Galactifun.discoveryManager().hasDiscovered(player, planetaryWorld);
+                lore.add(Component.empty());
+                lore.add(Component.text("Discovery: ")
+                        .color(NamedTextColor.GRAY)
+                        .append(Component.text(discovered ? "Visited" : "Not visited")
+                                .color(discovered ? NamedTextColor.GREEN : NamedTextColor.YELLOW)));
+            }
+        }
+
+        if (!modifier.modifyItem(player, object, lore)) {
+            return null;
+        }
+
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    @Nullable
+    private static PlanetaryWorld resolveCurrentWorld(@Nonnull Player player) {
+        if (Galactifun.travelManager() != null) {
+            return Galactifun.travelManager().resolveTravelOrigin(player.getWorld());
+        }
+        return Galactifun.worldManager().getWorld(player.getWorld());
+    }
+
+    private boolean showObject(@Nonnull Player p, @Nonnull UniversalObject object) {
         for (UniversalObject o : object.orbiters()) {
-            if (o instanceof PlanetaryWorld world && world.enabled() && modifier.modifyItem(p, world, new ArrayList<>())) {
-                return true;
-            } else if (showObject(p, o) && modifier.modifyItem(p, o, new ArrayList<>())) {
+            if (o instanceof PlanetaryWorld world && world.enabled()) {
+                List<Component> lore = new ArrayList<>();
+                if (modifier.modifyItem(p, world, lore)) {
+                    return true;
+                }
+            } else if (showObject(p, o)) {
                 return true;
             }
         }
@@ -214,31 +279,11 @@ public final class WorldSelector {
 
     @FunctionalInterface
     public interface SelectHandler {
-
-        /**
-         * Called when a player selects a world
-         *
-         * @param p the {@link Player} selecting the world
-         * @param world the {@link PlanetaryWorld} selected
-         */
         void onSelect(@Nonnull Player p, @Nonnull PlanetaryWorld world);
-
     }
 
     @FunctionalInterface
     public interface ItemModifier {
-
-        /**
-         * Called when the {@link WorldSelector} decides to display a {@link UniversalObject}
-         *
-         * @param p the {@link Player} that the {@link WorldSelector} is open to
-         * @param object the {@link UniversalObject} that the item represents
-         * @param lore the lore of the item, fresh for modification
-         *
-         * @return whether the item should be displayed
-         */
         boolean modifyItem(@Nonnull Player p, @Nonnull UniversalObject object, @Nonnull List<Component> lore);
-
     }
-
 }
