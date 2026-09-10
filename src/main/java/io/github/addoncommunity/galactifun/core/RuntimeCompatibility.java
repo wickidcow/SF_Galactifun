@@ -31,7 +31,7 @@ public final class RuntimeCompatibility {
 
         plugin.getLogger().info("Runtime compatibility preflight:");
         plugin.getLogger().info(" - Server: " + Bukkit.getName() + " " + Bukkit.getVersion());
-        plugin.getLogger().info(" - Minecraft/Paper API target: " + Bukkit.getMinecraftVersion() + " / 26.2");
+        plugin.getLogger().info(" - Paper API baseline: 1.21.11; runtime Minecraft: " + Bukkit.getMinecraftVersion());
         plugin.getLogger().info(" - Java: " + Runtime.version());
 
         if (!PaperLib.isPaper()) {
@@ -40,7 +40,7 @@ public final class RuntimeCompatibility {
         }
 
         if (Runtime.version().feature() < MINIMUM_JAVA_FEATURE) {
-            plugin.getLogger().severe("Galactifun requires Java 21 or newer. Paper 26.2 is expected to run on Java 25.");
+            plugin.getLogger().severe("Galactifun requires Java 21 or newer. Paper 26.1+ requires Java 25.");
             compatible = false;
         }
 
@@ -56,7 +56,7 @@ public final class RuntimeCompatibility {
 
         if (isClassPresent("io.papermc.paper.threadedregions.RegionizedServer")) {
             plugin.getLogger().warning("Folia runtime detected. Galactifun world ticking and generation are experimental on Folia;");
-            plugin.getLogger().warning("use Paper 26.2 or Purpur for the supported production path.");
+            plugin.getLogger().warning("use standard Paper or Purpur for the supported production path.");
         }
 
         compatible &= rejectKnownConflict(plugin, "ClayTech");
