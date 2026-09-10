@@ -1,7 +1,7 @@
 name: Galactifun
 version: '${version}'
 main: io.github.addoncommunity.galactifun.Galactifun
-api-version: '26.2'
+api-version: '1.21.11'
 description: Space exploration, planetary worlds, rockets, life support, alien ecosystems, and astronomy for Slimefun Legacy.
 authors: [Seggan, Mooy1, GallowsDove, ProfElements, Charmandiox9]
 contributors: [wickidcow]
