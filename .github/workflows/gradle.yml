@@ -58,7 +58,7 @@ jobs:
           unzip -p "$JAR" plugin.yml | tee /tmp/galactifun-plugin.yml
           grep -F "name: Galactifun" /tmp/galactifun-plugin.yml
           grep -F "version: '1.0.5'" /tmp/galactifun-plugin.yml
-          grep -F "api-version: '26.2'" /tmp/galactifun-plugin.yml
+          grep -F "api-version: '1.21.11'" /tmp/galactifun-plugin.yml
           grep -F "  - Slimefun" /tmp/galactifun-plugin.yml
           grep -F "  - Multiverse-Core" /tmp/galactifun-plugin.yml
 
@@ -112,5 +112,5 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "$TITLE" \
-              --notes "Galactifun Legacy 1.0.5 stable master build for Slimefun Legacy. Includes the Paper/Purpur 26.2 compatibility hardening, Multiverse integration, rocket/stargate travel safeguards, and Java 21 bytecode target."
+              --notes "Galactifun Legacy 1.0.5 stable build for Slimefun Legacy. Supports the Paper 1.21.11 API baseline while retaining Paper/Purpur 26.2 compatibility, Multiverse integration, rocket/stargate travel safeguards, and Java 21 bytecode."
           fi

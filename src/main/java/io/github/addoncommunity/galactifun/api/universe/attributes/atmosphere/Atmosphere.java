@@ -29,6 +29,7 @@ public final class Atmosphere {
             .addEffect(AtmosphericEffect.COLD, 3)
             .build();
     private static final double EARTH_CARBON_DIOXIDE = 0.0415;
+    private static final int VANILLA_FIRE_SPREAD_RADIUS = 128;
     public static final Atmosphere EARTH_LIKE = new AtmosphereBuilder().enableWeather()
             .add(Gas.NITROGEN, 77.084) // subtracted 1 to allow water to fit in
             .add(Gas.OXYGEN, 20.946)
@@ -85,8 +86,9 @@ public final class Atmosphere {
             world.setThunderDuration(Integer.MAX_VALUE);
         }
 
+        Integer defaultFireSpreadRadius = world.getGameRuleDefault(GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER);
         int fireSpreadRadius = this.flammable
-                ? GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER.getDefaultValue()
+                ? (defaultFireSpreadRadius == null ? VANILLA_FIRE_SPREAD_RADIUS : defaultFireSpreadRadius)
                 : 0;
         world.setGameRule(GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER, fireSpreadRadius);
     }

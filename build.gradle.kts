@@ -1,5 +1,3 @@
-import org.gradle.api.attributes.java.TargetJvmVersion
-
 plugins {
     `java-library`
     id("com.gradleup.shadow") version "9.6.1"
@@ -19,12 +17,15 @@ version = "1.0.5"
 description = "Galactifun Legacy - space exploration and planetary gameplay for Slimefun Legacy"
 
 val slimefunCoreJar = providers.gradleProperty("slimefunCoreJar").orNull
+val paperApiVersion = "1.21.11-R0.1-SNAPSHOT"
 
 dependencies {
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("commons-codec:commons-codec:1.17.1")
 
-    compileOnly("io.papermc.paper:paper-api:26.2.build.+")
+    // Compile against the oldest supported Paper API so the release JAR cannot
+    // accidentally link against methods introduced only in Paper 26.1/26.2.
+    compileOnly("io.papermc.paper:paper-api:$paperApiVersion")
     if (slimefunCoreJar != null) {
         compileOnly(files(slimefunCoreJar))
     } else {
@@ -35,21 +36,13 @@ dependencies {
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
-    testImplementation("io.papermc.paper:paper-api:26.2.build.+")
+    testImplementation("io.papermc.paper:paper-api:$paperApiVersion")
 }
 
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
-}
-
-// Paper 26.2 publishes Java 25 API classes. The build JVM can consume those classes while
-// Galactifun itself remains deliberately compiled to Java 21 bytecode for Legacy compatibility.
-configurations.configureEach {
-    if (isCanBeResolved) {
-        attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
-    }
 }
 
 tasks.withType<JavaCompile> {
@@ -93,6 +86,8 @@ tasks.build {
 }
 
 tasks.runServer {
+    // Keep the convenience runtime on the newest supported Paper while compilation uses
+    // the 1.21.11 API baseline above.
     minecraftVersion("26.2")
     pluginJars(tasks.shadowJar.flatMap { it.archiveFile })
 }
