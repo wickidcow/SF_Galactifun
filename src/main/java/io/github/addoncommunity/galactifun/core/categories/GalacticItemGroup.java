@@ -26,7 +26,9 @@ public final class GalacticItemGroup extends FlexItemGroup {
 
     @Override
     public boolean isVisible(@Nonnull Player player, @Nonnull PlayerProfile playerProfile, @Nonnull SlimefunGuideMode slimefunGuideMode) {
-        return true;
+        // This FlexItemGroup is opened by Galactifun's parent MultiGroup. Keeping it hidden here
+        // prevents a duplicate "Planets & Universe" folder from appearing in the main guide.
+        return false;
     }
 
     @Override

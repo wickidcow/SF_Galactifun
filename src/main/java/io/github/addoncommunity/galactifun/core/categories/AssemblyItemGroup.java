@@ -46,7 +46,9 @@ public final class AssemblyItemGroup extends FlexItemGroup {
 
     @Override
     public boolean isVisible(@Nonnull Player p, @Nonnull PlayerProfile profile, @Nonnull SlimefunGuideMode layout) {
-        return true;
+        // This FlexItemGroup is opened by Galactifun's parent MultiGroup. Keeping it hidden here
+        // prevents a duplicate "Assembly Table Recipes" folder from appearing in the main guide.
+        return false;
     }
 
     @Override
