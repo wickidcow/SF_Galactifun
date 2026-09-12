@@ -43,7 +43,7 @@ jobs:
           echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
           echo "Compiling against published Slimefun Legacy 4.1.45 release JAR"
 
-      - name: Test and build Galactifun 1.0.5
+      - name: Test and build Galactifun 1.0.6
         run: |
           chmod +x gradlew
           ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR"
@@ -51,13 +51,13 @@ jobs:
       - name: Verify release artifact
         shell: bash
         run: |
-          JAR="build/libs/SF_Glactifun1.0.5.jar"
+          JAR="build/libs/SF_Glactifun1.0.6.jar"
           test -f "$JAR"
 
           echo "Verifying plugin metadata"
           unzip -p "$JAR" plugin.yml | tee /tmp/galactifun-plugin.yml
           grep -F "name: Galactifun" /tmp/galactifun-plugin.yml
-          grep -F "version: '1.0.5'" /tmp/galactifun-plugin.yml
+          grep -F "version: '1.0.6'" /tmp/galactifun-plugin.yml
           grep -F "api-version: '1.21.11'" /tmp/galactifun-plugin.yml
           grep -F "  - Slimefun" /tmp/galactifun-plugin.yml
           grep -F "  - Multiverse-Core" /tmp/galactifun-plugin.yml
@@ -90,27 +90,34 @@ jobs:
       - name: Upload Galactifun JAR
         uses: actions/upload-artifact@v7
         with:
-          name: SF_Glactifun1.0.5
-          path: build/libs/SF_Glactifun1.0.5.jar
+          name: SF_Glactifun1.0.6
+          path: build/libs/SF_Glactifun1.0.6.jar
           if-no-files-found: error
 
-      - name: Publish Galactifun 1.0.5 release
+      - name: Publish Galactifun 1.0.6 release
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="v1.0.5"
-          JAR="build/libs/SF_Glactifun1.0.5.jar"
-          TITLE="SF_Glactifun v1.0.5"
+          TAG="v1.0.6"
+          JAR="build/libs/SF_Glactifun1.0.6.jar"
+          TITLE="SF_Glactifun v1.0.6"
+          NOTES_FILE="release-notes/1.0.6.md"
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$JAR" --repo "$GITHUB_REPOSITORY" --clobber
+          elif [[ -f "$NOTES_FILE" ]]; then
+            gh release create "$TAG" "$JAR" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes-file "$NOTES_FILE"
           else
             gh release create "$TAG" "$JAR" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "$TITLE" \
-              --notes "Galactifun Legacy 1.0.5 stable build for Slimefun Legacy. Supports the Paper 1.21.11 API baseline while retaining Paper/Purpur 26.2 compatibility, Multiverse integration, rocket/stargate travel safeguards, and Java 21 bytecode."
+              --notes "Galactifun Legacy 1.0.6 stable build for Slimefun Legacy."
           fi
