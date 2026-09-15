@@ -192,6 +192,7 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
         double maxDistance = maxDistanceFor(fuel, fuelType);
 
         sendStatusSummary(p, b, fuel, fuelType, maxDistance);
+        Messages.yellow(p, "⚠ Don't forget your space suit!");
 
         new WorldSelector((player, obj, lore) -> {
             if (obj instanceof PlanetaryWorld) {
