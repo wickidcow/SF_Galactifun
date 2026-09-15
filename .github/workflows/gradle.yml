@@ -87,14 +87,11 @@ jobs:
 
           sha256sum "$JAR"
 
-      # GitHub Actions artifacts are downloaded as ZIP archives automatically.
-      # Keeping the JAR as the uploaded path gives one ZIP containing the raw plugin JAR,
-      # without creating a nested ZIP-inside-ZIP.
-      - name: Upload Galactifun ZIP artifact
+      - name: Upload Galactifun JAR
         uses: actions/upload-artifact@v7
         with:
-          name: SF_Glactifun1.0.6.zip
           path: build/libs/SF_Glactifun1.0.6.jar
+          archive: false
           if-no-files-found: error
 
       - name: Publish Galactifun 1.0.6 release
