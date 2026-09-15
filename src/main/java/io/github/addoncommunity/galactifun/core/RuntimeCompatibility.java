@@ -10,6 +10,7 @@ import org.bukkit.plugin.Plugin;
 
 import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
+import io.github.addoncommunity.galactifun.base.BaseUniverse;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.libraries.paperlib.PaperLib;
 
@@ -78,6 +79,17 @@ public final class RuntimeCompatibility {
         if (Galactifun.worldManager() == null) {
             plugin.getLogger().warning("Post-start world verification skipped because the world manager is unavailable.");
             return;
+        }
+
+        World earthWorld = BaseUniverse.EARTH.world();
+        if (earthWorld != null
+                && Bukkit.getWorld(earthWorld.getUID()) != null
+                && Galactifun.worldManager().getWorld(earthWorld) == BaseUniverse.EARTH) {
+            plugin.getLogger().info("Earth/survival world: '" + earthWorld.getName() + "' ("
+                    + earthWorld.getEnvironment() + ", loaded)");
+            plugin.getLogger().info("Rocket travel from Earth: READY");
+        } else {
+            plugin.getLogger().warning("Earth world verification failed; rocket travel from the configured survival world is NOT READY.");
         }
 
         List<String> worlds = new ArrayList<>();

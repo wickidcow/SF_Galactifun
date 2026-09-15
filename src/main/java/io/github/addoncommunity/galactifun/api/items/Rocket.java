@@ -42,6 +42,7 @@ import org.bukkit.util.Vector;
 import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
 import io.github.addoncommunity.galactifun.base.BaseItems;
+import io.github.addoncommunity.galactifun.base.items.LaunchPadCore;
 import io.github.addoncommunity.galactifun.base.items.knowledge.KnowledgeLevel;
 import io.github.addoncommunity.galactifun.core.WorldSelector;
 import io.github.addoncommunity.galactifun.core.managers.RocketLaunchRegistry;
@@ -163,6 +164,13 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
             return;
         }
 
+        int cargoStacks = LaunchPadCore.cargoStackCountForRocket(b);
+        if (cargoStacks > this.storageCapacity) {
+            Messages.red(p, "This rocket is over cargo capacity (" + cargoStacks + "/" + this.storageCapacity
+                    + " stacks). Remove some cargo before launch.");
+            return;
+        }
+
         int fuel = BSUtils.getStoredInt(b.getLocation(), "fuel");
         if (fuel == 0) {
             Messages.red(p, "The rocket has no fuel!");
@@ -184,6 +192,7 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
         double maxDistance = maxDistanceFor(fuel, fuelType);
 
         sendStatusSummary(p, b, fuel, fuelType, maxDistance);
+        Messages.yellow(p, "⚠ Don't forget your space suit!");
 
         new WorldSelector((player, obj, lore) -> {
             if (obj instanceof PlanetaryWorld) {
@@ -405,6 +414,14 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
             return;
         }
 
+        int cargoStacks = LaunchPadCore.cargoStackCountForRocket(rocket);
+        if (cargoStacks > this.storageCapacity) {
+            Messages.red(p, "Launch aborted because the rocket is over cargo capacity (" + cargoStacks + "/"
+                    + this.storageCapacity + " stacks). Remove some cargo and try again.");
+            releaseLaunch(rocket, owner);
+            return;
+        }
+
         Messages.yellow(p, "Verifying blast awesomeness...");
 
         List<ItemStack> delivery = new ArrayList<>();
@@ -416,6 +433,10 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
         PersistentDataContainer container = skull.getPersistentDataContainer();
         container.getOrDefault(CARGO_KEY, PersistentType.ITEM_STACK_LIST, new ArrayList<>())
                 .forEach(stack -> delivery.add(stack.clone()));
+
+        // New launch pads keep cargo visible like a chest. Only move those items out of the pad once
+        // launch has passed all validation and is actually completing.
+        delivery.addAll(LaunchPadCore.takeVisibleCargoForLaunch(rocket));
 
         ItemStack rocketVisual = new ItemStack(skull.getType());
         if (skull.getProfile() != null) {
@@ -503,13 +524,7 @@ public abstract class Rocket extends SlimefunItem implements RecipeDisplayItem {
             fuelName = ItemUtils.getItemName(fuelItem);
         }
 
-        int cargoStacks = 0;
-        BlockState state = rocket.getState();
-        if (state instanceof Skull skull) {
-            cargoStacks = skull.getPersistentDataContainer()
-                    .getOrDefault(CARGO_KEY, PersistentType.ITEM_STACK_LIST, new ArrayList<>())
-                    .size();
-        }
+        int cargoStacks = LaunchPadCore.cargoStackCountForRocket(rocket);
 
         Messages.yellow(player, "Rocket Status: " + launchStatus(rocket));
         Messages.yellow(player, "Fuel: " + fuel + "/" + this.fuelCapacity + " " + fuelName
