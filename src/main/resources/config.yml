@@ -8,6 +8,10 @@ worlds:
   # save its real name here, and keep using that exact world on future restarts.
   earth-name: auto
 
+  # Internal migration marker for Earth selection. Leave this alone.
+  # It allows older installs that still have the historical default "world" to be safely re-detected once.
+  earth-selection-complete: false
+
   # If set to true, players can use Nether portals in Galactifun planet worlds.
   allow-nether-portals: false
 
