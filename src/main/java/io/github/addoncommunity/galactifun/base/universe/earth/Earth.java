@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -32,6 +34,7 @@ import io.github.addoncommunity.galactifun.api.worlds.PlanetaryWorld;
 public final class Earth extends PlanetaryWorld {
 
     private static final String AUTO_WORLD = "auto";
+    private static final String LEGACY_DEFAULT_WORLD = "world";
     private static final String GALACTIFUN_WORLD_PREFIX = "world_galactifun_";
 
     public Earth(String name, PlanetaryType type, Orbit orbit, StarSystem orbiting, ItemStack baseItem,
@@ -46,11 +49,25 @@ public final class Earth extends PlanetaryWorld {
         String configuredName = plugin.getConfig().getString("worlds.earth-name", AUTO_WORLD);
         configuredName = configuredName == null ? AUTO_WORLD : configuredName.trim();
 
-        if (configuredName.isEmpty() || AUTO_WORLD.equalsIgnoreCase(configuredName)) {
+        World loadedConfiguredWorld = configuredName.isEmpty() || AUTO_WORLD.equalsIgnoreCase(configuredName)
+                ? null
+                : Bukkit.getWorld(configuredName);
+        if (loadedConfiguredWorld != null) {
+            return loadedConfiguredWorld;
+        }
+
+        // New installs use "auto". Older Galactifun installs shipped with the literal default "world".
+        // If that old default is not actually loaded, treat it as an unset legacy value rather than
+        // silently creating a brand-new world folder on a server whose real survival world has another name.
+        boolean autoSelection = configuredName.isEmpty()
+                || AUTO_WORLD.equalsIgnoreCase(configuredName)
+                || LEGACY_DEFAULT_WORLD.equalsIgnoreCase(configuredName);
+
+        if (autoSelection) {
             World detectedWorld = detectEarthWorld();
             if (detectedWorld == null) {
                 throw new IllegalStateException(
-                        "Galactifun could not auto-detect a loaded NORMAL world to use as Earth. "
+                        "Galactifun could not safely auto-detect a loaded NORMAL survival world to use as Earth. "
                                 + "Set worlds.earth-name in plugins/Galactifun/config.yml."
                 );
             }
@@ -62,11 +79,8 @@ public final class Earth extends PlanetaryWorld {
             return detectedWorld;
         }
 
-        World loadedWorld = Bukkit.getWorld(configuredName);
-        if (loadedWorld != null) {
-            return loadedWorld;
-        }
-
+        // A non-default explicit name is intentional. Preserve historical behavior and load/create
+        // that configured world rather than replacing a deliberate administrator choice.
         World world = new WorldCreator(Objects.requireNonNull(configuredName)).createWorld();
         if (world == null) {
             throw new IllegalStateException("Failed to load configured Earth world '" + configuredName + "'.");
@@ -76,17 +90,49 @@ public final class Earth extends PlanetaryWorld {
 
     @Nullable
     private static World detectEarthWorld() {
+        List<World> candidates = new ArrayList<>();
+        for (World world : Bukkit.getWorlds()) {
+            if (isEarthCandidate(world)) {
+                candidates.add(world);
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        // "survival" is a very common Multiverse/main-world name and should win over a lobby/spawn
+        // world when both are already loaded.
+        World survivalNamed = findCandidate(candidates, "survival");
+        if (survivalNamed != null) {
+            return survivalNamed;
+        }
+
+        // Otherwise prefer the server's configured primary level when it is a normal Overworld.
         String primaryLevelName = readPrimaryLevelName();
         if (primaryLevelName != null) {
-            World primaryWorld = Bukkit.getWorld(primaryLevelName);
-            if (isEarthCandidate(primaryWorld)) {
+            World primaryWorld = findCandidate(candidates, primaryLevelName);
+            if (primaryWorld != null) {
                 return primaryWorld;
             }
         }
 
-        for (World world : Bukkit.getWorlds()) {
-            if (isEarthCandidate(world)) {
-                return world;
+        // Preserve vanilla/default installations where the normal survival world is still named "world".
+        World vanillaNamed = findCandidate(candidates, LEGACY_DEFAULT_WORLD);
+        if (vanillaNamed != null) {
+            return vanillaNamed;
+        }
+
+        // If there is only one valid normal world, it is unambiguous. With multiple unknown candidates,
+        // fail safely rather than choosing a creative/lobby world at random.
+        return candidates.size() == 1 ? candidates.get(0) : null;
+    }
+
+    @Nullable
+    private static World findCandidate(@Nonnull List<World> candidates, @Nonnull String name) {
+        for (World candidate : candidates) {
+            if (candidate.getName().equalsIgnoreCase(name)) {
+                return candidate;
             }
         }
         return null;
