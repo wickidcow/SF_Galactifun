@@ -1,5 +1,6 @@
 package io.github.addoncommunity.galactifun.api.universe.attributes.atmosphere;
 
+import java.lang.reflect.Method;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -86,11 +87,49 @@ public final class Atmosphere {
             world.setThunderDuration(Integer.MAX_VALUE);
         }
 
-        Integer defaultFireSpreadRadius = world.getGameRuleDefault(GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER);
-        int fireSpreadRadius = this.flammable
-                ? (defaultFireSpreadRadius == null ? VANILLA_FIRE_SPREAD_RADIUS : defaultFireSpreadRadius)
-                : 0;
+        int fireSpreadRadius = this.flammable ? defaultFireSpreadRadius(world) : 0;
         world.setGameRule(GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER, fireSpreadRadius);
+    }
+
+    /**
+     * Paper moved the default-value lookup from World to GameRule during the
+     * supported version range. Resolve either API shape without compiling
+     * against the deprecated World method, keeping one addon JAR usable from
+     * the 1.21.11 baseline through 26.3.
+     */
+    private static int defaultFireSpreadRadius(World world) {
+        Object gameRule = GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER;
+
+        try {
+            Method getDefaultValue = gameRule.getClass().getMethod("getDefaultValue");
+            Object value = getDefaultValue.invoke(gameRule);
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            // Older API shape; try World#getGameRuleDefault reflectively below.
+        }
+
+        try {
+            for (Method method : world.getClass().getMethods()) {
+                if (!method.getName().equals("getGameRuleDefault") || method.getParameterCount() != 1) {
+                    continue;
+                }
+
+                if (!method.getParameterTypes()[0].isInstance(gameRule)) {
+                    continue;
+                }
+
+                Object value = method.invoke(world, gameRule);
+                if (value instanceof Number number) {
+                    return number.intValue();
+                }
+            }
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            // Fall back to Minecraft's established default below.
+        }
+
+        return VANILLA_FIRE_SPREAD_RADIUS;
     }
 
     public void applyEffects(@Nonnull Player player) {
