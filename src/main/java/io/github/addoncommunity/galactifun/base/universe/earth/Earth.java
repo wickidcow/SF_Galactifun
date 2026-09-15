@@ -36,6 +36,8 @@ public final class Earth extends PlanetaryWorld {
     private static final String AUTO_WORLD = "auto";
     private static final String LEGACY_DEFAULT_WORLD = "world";
     private static final String GALACTIFUN_WORLD_PREFIX = "world_galactifun_";
+    private static final String EARTH_NAME_PATH = "worlds.earth-name";
+    private static final String EARTH_SELECTION_COMPLETE_PATH = "worlds.earth-selection-complete";
 
     public Earth(String name, PlanetaryType type, Orbit orbit, StarSystem orbiting, ItemStack baseItem,
                  DayCycle dayCycle, Atmosphere atmosphere, Gravity gravity) {
@@ -46,24 +48,15 @@ public final class Earth extends PlanetaryWorld {
     @Override
     public World loadWorld() {
         Galactifun plugin = Galactifun.instance();
-        String configuredName = plugin.getConfig().getString("worlds.earth-name", AUTO_WORLD);
+        String configuredName = plugin.getConfig().getString(EARTH_NAME_PATH, AUTO_WORLD);
         configuredName = configuredName == null ? AUTO_WORLD : configuredName.trim();
 
-        World loadedConfiguredWorld = configuredName.isEmpty() || AUTO_WORLD.equalsIgnoreCase(configuredName)
-                ? null
-                : Bukkit.getWorld(configuredName);
-        if (loadedConfiguredWorld != null) {
-            return loadedConfiguredWorld;
-        }
+        boolean selectionComplete = plugin.getConfig().getBoolean(EARTH_SELECTION_COMPLETE_PATH, false);
+        boolean autoRequested = configuredName.isEmpty() || AUTO_WORLD.equalsIgnoreCase(configuredName);
+        boolean legacyDefaultNeedsMigration = !selectionComplete
+                && LEGACY_DEFAULT_WORLD.equalsIgnoreCase(configuredName);
 
-        // New installs use "auto". Older Galactifun installs shipped with the literal default "world".
-        // If that old default is not actually loaded, treat it as an unset legacy value rather than
-        // silently creating a brand-new world folder on a server whose real survival world has another name.
-        boolean autoSelection = configuredName.isEmpty()
-                || AUTO_WORLD.equalsIgnoreCase(configuredName)
-                || LEGACY_DEFAULT_WORLD.equalsIgnoreCase(configuredName);
-
-        if (autoSelection) {
+        if (autoRequested || legacyDefaultNeedsMigration) {
             World detectedWorld = detectEarthWorld();
             if (detectedWorld == null) {
                 throw new IllegalStateException(
@@ -72,11 +65,17 @@ public final class Earth extends PlanetaryWorld {
                 );
             }
 
-            plugin.getConfig().set("worlds.earth-name", detectedWorld.getName());
-            plugin.saveConfig();
-            plugin.getLogger().info("Auto-detected Earth/survival world '" + detectedWorld.getName()
-                    + "' and saved it to worlds.earth-name.");
+            saveEarthSelection(plugin, detectedWorld);
+            String reason = legacyDefaultNeedsMigration ? "Migrated legacy Earth default to" : "Auto-detected Earth/survival world";
+            plugin.getLogger().info(reason + " '" + detectedWorld.getName() + "' and saved the selection.");
             return detectedWorld;
+        }
+
+        World loadedWorld = Bukkit.getWorld(configuredName);
+        if (loadedWorld != null) {
+            validateEarthWorld(loadedWorld);
+            markSelectionComplete(plugin);
+            return loadedWorld;
         }
 
         // A non-default explicit name is intentional. Preserve historical behavior and load/create
@@ -85,7 +84,32 @@ public final class Earth extends PlanetaryWorld {
         if (world == null) {
             throw new IllegalStateException("Failed to load configured Earth world '" + configuredName + "'.");
         }
+        validateEarthWorld(world);
+        markSelectionComplete(plugin);
         return world;
+    }
+
+    private static void saveEarthSelection(@Nonnull Galactifun plugin, @Nonnull World world) {
+        validateEarthWorld(world);
+        plugin.getConfig().set(EARTH_NAME_PATH, world.getName());
+        plugin.getConfig().set(EARTH_SELECTION_COMPLETE_PATH, true);
+        plugin.saveConfig();
+    }
+
+    private static void markSelectionComplete(@Nonnull Galactifun plugin) {
+        if (!plugin.getConfig().getBoolean(EARTH_SELECTION_COMPLETE_PATH, false)) {
+            plugin.getConfig().set(EARTH_SELECTION_COMPLETE_PATH, true);
+            plugin.saveConfig();
+        }
+    }
+
+    private static void validateEarthWorld(@Nonnull World world) {
+        if (world.getEnvironment() != World.Environment.NORMAL) {
+            throw new IllegalStateException(
+                    "Configured Earth world '" + world.getName() + "' is " + world.getEnvironment()
+                            + ", but Galactifun Earth must be a NORMAL Overworld."
+            );
+        }
     }
 
     @Nullable
@@ -101,8 +125,8 @@ public final class Earth extends PlanetaryWorld {
             return null;
         }
 
-        // "survival" is a very common Multiverse/main-world name and should win over a lobby/spawn
-        // world when both are already loaded.
+        // A loaded world explicitly named "survival" is the strongest signal on Multiverse servers
+        // and should win over a lobby/spawn world that may still be named "world".
         World survivalNamed = findCandidate(candidates, "survival");
         if (survivalNamed != null) {
             return survivalNamed;
