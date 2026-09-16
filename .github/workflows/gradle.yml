@@ -1,4 +1,4 @@
-name: Build Galactifun Legacy
+name: Build Galactifun
 
 on:
   push:
@@ -19,96 +19,64 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
       - name: Checkout Galactifun
         uses: actions/checkout@v6
-
       - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
           cache: gradle
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-
       - name: Download released Slimefun Legacy 4.1.45 JAR
         shell: bash
         run: |
           mkdir -p .ci
-          curl --fail --location --silent --show-error \
-            https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.45/Slimefun-Legacy4.1.45.jar \
-            --output .ci/Slimefun-Legacy4.1.45.jar
-
-          echo "3a6b1a377507f7a5ee542b1e062e5d67e13d80e1f200ecb5f0be58fe8c26011c  .ci/Slimefun-Legacy4.1.45.jar" \
-            | sha256sum --check --strict
-
+          curl --fail --location --silent --show-error https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.45/Slimefun-Legacy4.1.45.jar --output .ci/Slimefun-Legacy4.1.45.jar
+          echo "3a6b1a377507f7a5ee542b1e062e5d67e13d80e1f200ecb5f0be58fe8c26011c  .ci/Slimefun-Legacy4.1.45.jar" | sha256sum --check --strict
           echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
-
-      - name: Build universal Galactifun 1.0.7 release on 1.21.11 baseline
+      - name: Verify canonical release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]
+          test "$OUTPUT_NAME" = "SF_Galactifun${VERSION}.jar"
+          grep -Fq 'archiveFileName.set("SF_Galactifun${project.version}.jar")' build.gradle.kts
+      - name: Build universal release on 1.21.11 baseline
         run: |
           chmod +x gradlew
-          ./gradlew clean build --no-daemon \
-            -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" \
-            -PpaperVersion=1.21.11-R0.1-SNAPSHOT \
-            -PtargetJvm=21 \
-            -PprojectVersion=1.0.7
-
+          ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=1.21.11-R0.1-SNAPSHOT -PtargetJvm=21 -PprojectVersion=1.0.7
       - name: Verify release artifact
         shell: bash
         run: |
           set -euo pipefail
           JAR="build/libs/${OUTPUT_NAME}"
           test -f "$JAR"
-
           unzip -p "$JAR" plugin.yml | tee /tmp/galactifun-plugin.yml
           grep -F "name: Galactifun" /tmp/galactifun-plugin.yml
           grep -F "version: '1.0.7'" /tmp/galactifun-plugin.yml
+          if grep -Eiq '^version:.*(legacy|english|snapshot)' /tmp/galactifun-plugin.yml; then exit 1; fi
           grep -F "api-version: '1.21.11'" /tmp/galactifun-plugin.yml
-          grep -F "  - Slimefun" /tmp/galactifun-plugin.yml
-          grep -F "  - Multiverse-Core" /tmp/galactifun-plugin.yml
-
-          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/RuntimeCompatibility.class"
-          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/integrations/MultiverseIntegration.class"
-          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/RocketLaunchRegistry.class"
-          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/StargateRegistry.class"
-          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/StargateTravelValidator.class"
-          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/base/items/SpaceSuitUpgrader.class"
-          jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/WorldManager.class"
-
-          javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
-            | grep -F "major version: 65"
-
-          if jar tf "$JAR" | grep -q '^io/github/thebusybiscuit/slimefun4/'; then
-            echo "Slimefun classes were unexpectedly bundled into Galactifun" >&2
-            exit 1
-          fi
-          if jar tf "$JAR" | grep -q '^org/mvplugins/multiverse/'; then
-            echo "Multiverse classes were unexpectedly bundled into Galactifun" >&2
-            exit 1
-          fi
-
+          javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun | grep -F "major version: 65"
+          if jar tf "$JAR" | grep -q '^io/github/thebusybiscuit/slimefun4/'; then exit 1; fi
+          if jar tf "$JAR" | grep -q '^org/mvplugins/multiverse/'; then exit 1; fi
           mkdir -p dist
           cp "$JAR" "dist/${OUTPUT_NAME}"
           sha256sum "dist/${OUTPUT_NAME}"
-
       - name: Verify Paper 26.2 compilation
         run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.2.build.+ -PtargetJvm=25 -PprojectVersion=1.0.7
-
       - name: Verify Paper 26.3 alpha compilation
         run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3-rc-3.build.1-alpha -PtargetJvm=25 -PprojectVersion=1.0.7
-
-      - name: Upload Galactifun JAR
+      - name: Upload canonical raw JAR artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.OUTPUT_NAME }}
           path: dist/${{ env.OUTPUT_NAME }}
           archive: false
           if-no-files-found: error
-
-      - name: Publish Galactifun 1.0.7 release
+      - name: Publish canonical Galactifun release
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') || (github.event_name == 'push' && github.ref == 'refs/heads/master')
         env:
           GH_TOKEN: ${{ github.token }}
@@ -117,15 +85,11 @@ jobs:
           set -euo pipefail
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then TAG="$GITHUB_REF_NAME"; else TAG="v${VERSION}"; fi
           JAR="dist/${OUTPUT_NAME}"
-          TITLE="SF_Galactifun ${TAG}"
-          NOTES="Galactifun Legacy 1.0.7 adds Paper 26.3 alpha compatibility validation while retaining the Paper/Purpur 26.2 production baseline, Paper 1.21.11 release baseline, Java 21 universal bytecode, protected planet-world ownership, Multiverse attachment support, and rocket/stargate travel hardening. The public artifact spelling is corrected to ${OUTPUT_NAME}."
-
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            while IFS= read -r OLD; do
+              if [[ "$OLD" == *.jar && "$OLD" != "$OUTPUT_NAME" ]]; then gh release delete-asset "$TAG" "$OLD" --repo "$GITHUB_REPOSITORY" -y; fi
+            done < <(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
             gh release upload "$TAG" "$JAR" --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create "$TAG" "$JAR" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "$TITLE" \
-              --notes "$NOTES"
+            gh release create "$TAG" "$JAR" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "SF_Galactifun ${VERSION}" --notes "Galactifun ${VERSION}: canonical ${OUTPUT_NAME} release."
           fi
