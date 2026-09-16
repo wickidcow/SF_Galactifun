@@ -72,6 +72,13 @@ tasks.processResources {
     }
 }
 
+// Galactifun inherits InfinityLib from the Slimefun compatibility classpath at compile time,
+// then Shadow rewrites and packages the required classes. Never leave the normal thin JAR in
+// build/libs, otherwise bundle tooling can select a plugin whose superclass is unrelocated.
+tasks.named("jar") {
+    enabled = false
+}
+
 tasks.shadowJar {
     archiveClassifier.set("")
     archiveFileName.set("SF_Galactifun${project.version}.jar")
