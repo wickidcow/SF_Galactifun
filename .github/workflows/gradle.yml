@@ -3,12 +3,17 @@ name: Build Galactifun Legacy
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
     branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  VERSION: "1.0.7"
+  OUTPUT_NAME: "SF_Galactifun1.0.7.jar"
 
 jobs:
   build:
@@ -43,21 +48,24 @@ jobs:
           echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
           echo "Compiling against published Slimefun Legacy 4.1.45 release JAR"
 
-      - name: Test and build Galactifun 1.0.6
+      - name: Test and build Galactifun 1.0.7 on 1.21.11 baseline
         run: |
           chmod +x gradlew
-          ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR"
+          ./gradlew clean build --no-daemon \
+            -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" \
+            -PpaperVersion=1.21.11-R0.1-SNAPSHOT \
+            -PprojectVersion=1.0.7
 
       - name: Verify release artifact
         shell: bash
         run: |
-          JAR="build/libs/SF_Glactifun1.0.6.jar"
+          JAR="build/libs/${OUTPUT_NAME}"
           test -f "$JAR"
 
           echo "Verifying plugin metadata"
           unzip -p "$JAR" plugin.yml | tee /tmp/galactifun-plugin.yml
           grep -F "name: Galactifun" /tmp/galactifun-plugin.yml
-          grep -F "version: '1.0.6'" /tmp/galactifun-plugin.yml
+          grep -F "version: '1.0.7'" /tmp/galactifun-plugin.yml
           grep -F "api-version: '1.21.11'" /tmp/galactifun-plugin.yml
           grep -F "  - Slimefun" /tmp/galactifun-plugin.yml
           grep -F "  - Multiverse-Core" /tmp/galactifun-plugin.yml
@@ -85,39 +93,42 @@ jobs:
             exit 1
           fi
 
-          sha256sum "$JAR"
+          mkdir -p dist
+          cp "$JAR" "dist/${OUTPUT_NAME}"
+          sha256sum "dist/${OUTPUT_NAME}"
+
+      - name: Verify Paper 26.2 compilation
+        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.2.build.+ -PprojectVersion=1.0.7
+
+      - name: Verify Paper 26.3 alpha compilation
+        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3-rc-3.build.1-alpha -PprojectVersion=1.0.7
 
       - name: Upload Galactifun JAR
         uses: actions/upload-artifact@v7
         with:
-          path: build/libs/SF_Glactifun1.0.6.jar
+          name: ${{ env.OUTPUT_NAME }}
+          path: dist/${{ env.OUTPUT_NAME }}
           archive: false
           if-no-files-found: error
 
-      - name: Publish Galactifun 1.0.6 release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - name: Publish Galactifun 1.0.7 release
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') || (github.event_name == 'push' && github.ref == 'refs/heads/master')
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="v1.0.6"
-          JAR="build/libs/SF_Glactifun1.0.6.jar"
-          TITLE="SF_Glactifun v1.0.6"
-          NOTES_FILE="release-notes/1.0.6.md"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then TAG="$GITHUB_REF_NAME"; else TAG="v${VERSION}"; fi
+          JAR="dist/${OUTPUT_NAME}"
+          TITLE="SF_Galactifun ${TAG}"
+          NOTES="Galactifun Legacy 1.0.7 adds Paper 26.3 alpha compatibility validation while retaining the Paper/Purpur 26.2 production baseline, Paper 1.21.11 API release baseline, Java 21 bytecode, protected planet-world ownership, Multiverse attachment support, and rocket/stargate travel hardening. The public artifact spelling is corrected to ${OUTPUT_NAME}."
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$JAR" --repo "$GITHUB_REPOSITORY" --clobber
-          elif [[ -f "$NOTES_FILE" ]]; then
-            gh release create "$TAG" "$JAR" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "$TITLE" \
-              --notes-file "$NOTES_FILE"
           else
             gh release create "$TAG" "$JAR" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "$TITLE" \
-              --notes "Galactifun Legacy 1.0.6 stable build for Slimefun Legacy."
+              --notes "$NOTES"
           fi
