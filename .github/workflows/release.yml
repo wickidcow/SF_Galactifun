@@ -1,4 +1,4 @@
-name: Release
+name: Release Galactifun
 
 on:
   push:
@@ -7,12 +7,16 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. v1.0.5)'
+        description: 'Release tag (for example v1.0.7)'
         required: true
-        default: 'v1.0.5'
+        default: 'v1.0.7'
 
 permissions:
   contents: write
+
+env:
+  VERSION: "1.0.7"
+  OUTPUT_NAME: "SF_Galactifun1.0.7.jar"
 
 jobs:
   release:
@@ -42,32 +46,47 @@ jobs:
           curl --fail --location --silent --show-error \
             https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.45/Slimefun-Legacy4.1.45.jar \
             --output .ci/Slimefun-Legacy4.1.45.jar
-
           echo "3a6b1a377507f7a5ee542b1e062e5d67e13d80e1f200ecb5f0be58fe8c26011c  .ci/Slimefun-Legacy4.1.45.jar" \
             | sha256sum --check --strict
-
           echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
 
-      - name: Test and build Shadow Jar
+      - name: Build universal release JAR
         run: |
           chmod +x gradlew
-          ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR"
+          ./gradlew clean build --no-daemon \
+            -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" \
+            -PpaperVersion=1.21.11-R0.1-SNAPSHOT \
+            -PprojectVersion="$VERSION"
 
-      - name: Verify Release Jar
+      - name: Verify release JAR
         shell: bash
         run: |
-          JAR="build/libs/SF_Glactifun1.0.5.jar"
-          test -f "$JAR"
-          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.5'"
+          JAR="build/libs/${OUTPUT_NAME}"
+          test -s "$JAR"
+          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.7'"
+          unzip -p "$JAR" plugin.yml | grep -F "api-version: '1.21.11'"
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
             | grep -F "major version: 65"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          target_commitish: ${{ github.sha }}
-          files: build/libs/SF_Glactifun1.0.5.jar
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+      - name: Verify Paper 26.3 alpha compilation
+        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3-rc-3.build.1-alpha -PprojectVersion="$VERSION"
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          JAR="build/libs/${OUTPUT_NAME}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$JAR" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "$JAR" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "SF_Galactifun $TAG" \
+              --notes "Galactifun 1.0.7 adds Paper 26.3 alpha compatibility validation and publishes the correctly spelled raw JAR ${OUTPUT_NAME}."
+          fi
