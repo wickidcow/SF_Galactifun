@@ -13,19 +13,19 @@ repositories {
 }
 
 group = "io.github.addoncommunity.galactifun"
-version = "1.0.6"
+version = providers.gradleProperty("projectVersion").orElse("1.0.7").get()
 description = "Galactifun Legacy - space exploration and planetary gameplay for Slimefun Legacy"
 
 val slimefunCoreJar = providers.gradleProperty("slimefunCoreJar").orNull
-val paperApiVersion = "1.21.11-R0.1-SNAPSHOT"
+val paperApiVersion = providers.gradleProperty("paperVersion").orElse("1.21.11-R0.1-SNAPSHOT")
 
 dependencies {
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("commons-codec:commons-codec:1.17.1")
 
-    // Compile against the oldest supported Paper API so the release JAR cannot
-    // accidentally link against methods introduced only in Paper 26.1/26.2.
-    compileOnly("io.papermc.paper:paper-api:$paperApiVersion")
+    // Compile the release JAR against the oldest supported Paper API. CI overrides this
+    // property for 26.2 and 26.3 compatibility compilation without raising the runtime floor.
+    compileOnly("io.papermc.paper:paper-api:${paperApiVersion.get()}")
     if (slimefunCoreJar != null) {
         compileOnly(files(slimefunCoreJar))
     } else {
@@ -36,7 +36,7 @@ dependencies {
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
-    testImplementation("io.papermc.paper:paper-api:$paperApiVersion")
+    testImplementation("io.papermc.paper:paper-api:${paperApiVersion.get()}")
 }
 
 java {
@@ -48,8 +48,6 @@ java {
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
     options.release.set(21)
-    // Keep the Legacy compatibility boundaries explicit and prevent deprecated APIs from
-    // silently creeping back into normal Galactifun code.
     options.compilerArgs.addAll(listOf(
         "-Xlint:deprecation",
         "-Xlint:removal",
@@ -75,7 +73,7 @@ tasks.processResources {
 
 tasks.shadowJar {
     archiveClassifier.set("")
-    archiveFileName.set("SF_Glactifun1.0.6.jar")
+    archiveFileName.set("SF_Galactifun${project.version}.jar")
     relocate("io.github.mooy1.infinitylib", "io.github.addoncommunity.galactifun.infinitylib")
     relocate("org.apache.commons.lang3", "io.github.addoncommunity.galactifun.commons.lang3")
     relocate("org.apache.commons.codec", "io.github.addoncommunity.galactifun.commons.codec")
@@ -86,8 +84,7 @@ tasks.build {
 }
 
 tasks.runServer {
-    // Keep the convenience runtime on the newest supported Paper while compilation uses
-    // the 1.21.11 API baseline above.
+    // Paper 26.2 stays the production runtime baseline while 26.3 is alpha.
     minecraftVersion("26.2")
     pluginJars(tasks.shadowJar.flatMap { it.archiveFile })
 }
