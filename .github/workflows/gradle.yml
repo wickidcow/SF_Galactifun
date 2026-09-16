@@ -46,23 +46,23 @@ jobs:
             | sha256sum --check --strict
 
           echo "SLIMEFUN_CORE_JAR=.ci/Slimefun-Legacy4.1.45.jar" >> "$GITHUB_ENV"
-          echo "Compiling against published Slimefun Legacy 4.1.45 release JAR"
 
-      - name: Test and build Galactifun 1.0.7 on 1.21.11 baseline
+      - name: Build universal Galactifun 1.0.7 release on 1.21.11 baseline
         run: |
           chmod +x gradlew
           ./gradlew clean build --no-daemon \
             -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" \
             -PpaperVersion=1.21.11-R0.1-SNAPSHOT \
+            -PtargetJvm=21 \
             -PprojectVersion=1.0.7
 
       - name: Verify release artifact
         shell: bash
         run: |
+          set -euo pipefail
           JAR="build/libs/${OUTPUT_NAME}"
           test -f "$JAR"
 
-          echo "Verifying plugin metadata"
           unzip -p "$JAR" plugin.yml | tee /tmp/galactifun-plugin.yml
           grep -F "name: Galactifun" /tmp/galactifun-plugin.yml
           grep -F "version: '1.0.7'" /tmp/galactifun-plugin.yml
@@ -70,7 +70,6 @@ jobs:
           grep -F "  - Slimefun" /tmp/galactifun-plugin.yml
           grep -F "  - Multiverse-Core" /tmp/galactifun-plugin.yml
 
-          echo "Verifying hardening and compatibility classes"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/RuntimeCompatibility.class"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/integrations/MultiverseIntegration.class"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/RocketLaunchRegistry.class"
@@ -79,11 +78,9 @@ jobs:
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/base/items/SpaceSuitUpgrader.class"
           jar tf "$JAR" | grep -F "io/github/addoncommunity/galactifun/core/managers/WorldManager.class"
 
-          echo "Verifying Java 21 bytecode"
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
             | grep -F "major version: 65"
 
-          echo "Verifying Slimefun and Multiverse are not shaded into the addon"
           if jar tf "$JAR" | grep -q '^io/github/thebusybiscuit/slimefun4/'; then
             echo "Slimefun classes were unexpectedly bundled into Galactifun" >&2
             exit 1
@@ -98,10 +95,10 @@ jobs:
           sha256sum "dist/${OUTPUT_NAME}"
 
       - name: Verify Paper 26.2 compilation
-        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.2.build.+ -PprojectVersion=1.0.7
+        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.2.build.+ -PtargetJvm=25 -PprojectVersion=1.0.7
 
       - name: Verify Paper 26.3 alpha compilation
-        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3-rc-3.build.1-alpha -PprojectVersion=1.0.7
+        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3-rc-3.build.1-alpha -PtargetJvm=25 -PprojectVersion=1.0.7
 
       - name: Upload Galactifun JAR
         uses: actions/upload-artifact@v7
@@ -121,7 +118,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then TAG="$GITHUB_REF_NAME"; else TAG="v${VERSION}"; fi
           JAR="dist/${OUTPUT_NAME}"
           TITLE="SF_Galactifun ${TAG}"
-          NOTES="Galactifun Legacy 1.0.7 adds Paper 26.3 alpha compatibility validation while retaining the Paper/Purpur 26.2 production baseline, Paper 1.21.11 API release baseline, Java 21 bytecode, protected planet-world ownership, Multiverse attachment support, and rocket/stargate travel hardening. The public artifact spelling is corrected to ${OUTPUT_NAME}."
+          NOTES="Galactifun Legacy 1.0.7 adds Paper 26.3 alpha compatibility validation while retaining the Paper/Purpur 26.2 production baseline, Paper 1.21.11 release baseline, Java 21 universal bytecode, protected planet-world ownership, Multiverse attachment support, and rocket/stargate travel hardening. The public artifact spelling is corrected to ${OUTPUT_NAME}."
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$JAR" --repo "$GITHUB_REPOSITORY" --clobber
