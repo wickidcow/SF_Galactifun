@@ -48,17 +48,24 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=1.21.11-R0.1-SNAPSHOT -PtargetJvm=21 -PprojectVersion=1.0.7
-      - name: Verify release artifact
+      - name: Verify canonical shaded release artifact
         shell: bash
         run: |
           set -euo pipefail
           JAR="build/libs/${OUTPUT_NAME}"
           test -f "$JAR"
+          test "$(find build/libs -maxdepth 1 -type f -name '*.jar' | wc -l)" -eq 1
           unzip -p "$JAR" plugin.yml | tee /tmp/galactifun-plugin.yml
           grep -F "name: Galactifun" /tmp/galactifun-plugin.yml
           grep -F "version: '1.0.7'" /tmp/galactifun-plugin.yml
           if grep -Eiq '^version:.*(legacy|english|snapshot)' /tmp/galactifun-plugin.yml; then exit 1; fi
           grep -F "api-version: '1.21.11'" /tmp/galactifun-plugin.yml
+          jar tf "$JAR" | grep -Fxq 'io/github/addoncommunity/galactifun/infinitylib/core/AbstractAddon.class'
+          if jar tf "$JAR" | grep -q '^io/github/mooy1/infinitylib/'; then
+            echo 'Unrelocated InfinityLib classes detected in distributable JAR.' >&2
+            exit 1
+          fi
+          javap -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun | grep -Fq 'extends io.github.addoncommunity.galactifun.infinitylib.core.AbstractAddon'
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun | grep -F "major version: 65"
           if jar tf "$JAR" | grep -q '^io/github/thebusybiscuit/slimefun4/'; then exit 1; fi
           if jar tf "$JAR" | grep -q '^org/mvplugins/multiverse/'; then exit 1; fi
