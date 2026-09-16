@@ -18,18 +18,19 @@ description = "Galactifun Legacy - space exploration and planetary gameplay for 
 
 val slimefunCoreJar = providers.gradleProperty("slimefunCoreJar").orNull
 val paperApiVersion = providers.gradleProperty("paperVersion").orElse("1.21.11-R0.1-SNAPSHOT")
+val targetJvm = providers.gradleProperty("targetJvm").orElse("21").get().toInt()
 
 dependencies {
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("commons-codec:commons-codec:1.17.1")
 
-    // Compile the release JAR against the oldest supported Paper API. CI overrides this
-    // property for 26.2 and 26.3 compatibility compilation without raising the runtime floor.
+    // The shipped JAR is compiled against the oldest supported Paper API with Java 21 bytecode.
+    // CI can set targetJvm=25 while resolving Paper 26.x API artifacts, then rebuild the release
+    // artifact with targetJvm=21 so the universal runtime requirement does not increase.
     compileOnly("io.papermc.paper:paper-api:${paperApiVersion.get()}")
     if (slimefunCoreJar != null) {
         compileOnly(files(slimefunCoreJar))
     } else {
-        // Developer fallback. CI and release builds pass the exact Slimefun Legacy JAR.
         compileOnly("maven.modrinth:slimefuncore:PEuZoZh4")
     }
     compileOnly("com.google.code.findbugs:jsr305:3.0.2")
@@ -41,13 +42,13 @@ dependencies {
 
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.toVersion(targetJvm)
+    targetCompatibility = JavaVersion.toVersion(targetJvm)
 }
 
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
-    options.release.set(21)
+    options.release.set(targetJvm)
     options.compilerArgs.addAll(listOf(
         "-Xlint:deprecation",
         "-Xlint:removal",
