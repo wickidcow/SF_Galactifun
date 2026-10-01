@@ -27,6 +27,7 @@ import io.github.addoncommunity.galactifun.core.integrations.MultiverseIntegrati
 import io.github.addoncommunity.galactifun.core.managers.AlienManager;
 import io.github.addoncommunity.galactifun.core.managers.ProtectionManager;
 import io.github.addoncommunity.galactifun.core.managers.WorldManager;
+import io.github.addoncommunity.galactifun.core.managers.StargateRegistry;
 import io.github.mooy1.infinitylib.common.Scheduler;
 import io.github.mooy1.infinitylib.core.AbstractAddon;
 import io.github.mooy1.infinitylib.metrics.bukkit.Metrics;
@@ -64,9 +65,21 @@ public final class Galactifun extends AbstractAddon {
     @Override
     protected void enable() {
         instance = this;
+        shouldDisable = false;
 
         if (!RuntimeCompatibility.preflight(this)) {
             shouldDisable = true;
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        try {
+            StargateRegistry.initialize();
+        } catch (RuntimeException exception) {
+            shouldDisable = true;
+            getLogger().log(Level.SEVERE,
+                    "Stargate registry could not be loaded. Galactifun is disabling to preserve stargates.yml.", exception);
+            // InfinityLib can catch enable failures without disabling, so stop explicitly.
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
@@ -115,6 +128,7 @@ public final class Galactifun extends AbstractAddon {
 
     @Override
     protected void disable() {
+        StargateRegistry.shutdown();
         if (shouldDisable) {
             instance = null;
             return;

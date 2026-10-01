@@ -12,6 +12,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.InvalidConfigurationException;
 
 import io.github.addoncommunity.galactifun.Galactifun;
 import io.github.addoncommunity.galactifun.util.SFStorage;
@@ -30,8 +31,28 @@ public final class StargateRegistry {
 
     private static File file;
     private static YamlConfiguration config;
+    private static boolean dirty;
 
     private StargateRegistry() {
+    }
+
+    /** Validate persisted addresses before registering gameplay handlers or creating worlds. */
+    public static void initialize() {
+        synchronized (LOCK) {
+            ensureLoaded();
+        }
+    }
+
+    /** Retry a failed save at normal shutdown, then release only this lifecycle's cached directory. */
+    public static void shutdown() {
+        synchronized (LOCK) {
+            if (config != null && dirty) {
+                save();
+            }
+            config = null;
+            file = null;
+            dirty = false;
+        }
     }
 
     @Nonnull
@@ -72,6 +93,9 @@ public final class StargateRegistry {
                     || y != config.getInt(path + ".y")
                     || z != config.getInt(path + ".z");
             if (!changed) {
+                if (dirty) {
+                    save();
+                }
                 return;
             }
 
@@ -79,6 +103,7 @@ public final class StargateRegistry {
             config.set(path + ".x", x);
             config.set(path + ".y", y);
             config.set(path + ".z", z);
+            dirty = true;
             save();
         }
     }
@@ -119,9 +144,13 @@ public final class StargateRegistry {
             ensureLoaded();
             String path = ROOT + address;
             if (!config.contains(path)) {
+                if (dirty) {
+                    save();
+                }
                 return;
             }
             config.set(path, null);
+            dirty = true;
             save();
         }
     }
@@ -131,19 +160,22 @@ public final class StargateRegistry {
             return;
         }
 
-        File dataFolder = Galactifun.instance().getDataFolder();
-        if (!dataFolder.exists() && !dataFolder.mkdirs()) {
-            Galactifun.instance().getLogger().warning("Could not create Galactifun data directory for Stargate registry");
+        file = new File(Galactifun.instance().getDataFolder(), "stargates.yml");
+        try {
+            // Assign the shared cache only after the entire file has parsed successfully.
+            config = StargateRegistryFile.load(file.toPath());
+        } catch (IOException | InvalidConfigurationException exception) {
+            throw new IllegalStateException("Cannot load Stargate registry; original stargates.yml is retained", exception);
         }
-        file = new File(dataFolder, "stargates.yml");
-        config = YamlConfiguration.loadConfiguration(file);
     }
 
     private static void save() {
         try {
-            config.save(file);
-        } catch (IOException exception) {
-            Galactifun.instance().getLogger().log(Level.SEVERE, "Could not save Stargate registry", exception);
+            StargateRegistryFile.save(config, file.toPath());
+            dirty = false;
+        } catch (IOException | RuntimeException exception) {
+            Galactifun.instance().getLogger().log(Level.SEVERE,
+                    "Could not save Stargate registry; previous file is retained and changes remain pending", exception);
         }
     }
 }
