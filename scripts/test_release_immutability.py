@@ -41,6 +41,14 @@ def verify_policy(build: str, release: str) -> None:
         raise PolicyError("Existing-release existence guard must precede creation")
     if 'Refusing to modify the existing immutable release' not in release:
         raise PolicyError("Existing release must be rejected")
+    if 'if [[ "$GITHUB_REF" != refs/heads/master ]]' not in release:
+        raise PolicyError("Manual publication must run from default branch only")
+    if 'git ls-remote --exit-code --refs origin "refs/tags/$TAG"' not in release:
+        raise PolicyError("An existing immutable Git tag must be rejected")
+    if 'if [[ "$tag_status" -ne 2 ]]' not in release:
+        raise PolicyError("Tag lookup errors must fail closed")
+    if 'Refusing to reuse existing immutable tag' not in release:
+        raise PolicyError("Existing tag must cause an explicit refusal")
 
 
 class ReleaseImmutabilityTest(unittest.TestCase):
@@ -87,6 +95,20 @@ class ReleaseImmutabilityTest(unittest.TestCase):
     def test_cannot_remove_publisher_existence_gate(self):
         with self.assertRaises(PolicyError):
             verify_policy(self.build, self.release.replace('gh release view "$TAG"', 'true'))
+
+    def test_cannot_publish_from_review_branch(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                'if [[ "$GITHUB_REF" != refs/heads/master ]]', 'if [[ "$GITHUB_REF" == any ]]'))
+
+    def test_cannot_reuse_orphan_git_tag(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                'git ls-remote --exit-code --refs origin "refs/tags/$TAG"', 'true'))
+
+    def test_tag_lookup_errors_must_fail_closed(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace('if [[ "$tag_status" -ne 2 ]]', 'if false'))
 
     def test_cannot_replace_raw_jar_with_unverified_sources(self):
         with self.assertRaises(PolicyError):
