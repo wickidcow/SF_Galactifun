@@ -15,7 +15,7 @@ class PolicyError(ValueError):
 
 def verify_policy(build: str, release: str) -> None:
     """Fail closed if CI gains an automatic publisher or a mutable release path."""
-    if not re.search(r"(?m)^permissions:\\s*\\n  contents: read\\s*$", build):
+    if not re.search(r"(?m)^permissions:\s*\n  contents: read\s*$", build):
         raise PolicyError("Normal build must use read-only repository permissions")
     if "actions/upload-artifact@v7" not in build:
         raise PolicyError("Normal build must retain its canonical raw JAR artifact")
@@ -54,7 +54,7 @@ class ReleaseImmutabilityTest(unittest.TestCase):
 
     def test_master_push_cannot_publish(self):
         with self.assertRaises(PolicyError):
-            verify_policy(self.build + "\\n      - run: gh release upload v1.0.7 x.jar\\n", self.release)
+            verify_policy(self.build + "\n      - run: gh release upload v1.0.7 x.jar\n", self.release)
 
     def test_normal_build_cannot_gain_write_permissions(self):
         with self.assertRaises(PolicyError):
@@ -62,13 +62,13 @@ class ReleaseImmutabilityTest(unittest.TestCase):
 
     def test_no_auto_release_tag_trigger(self):
         with self.assertRaises(PolicyError):
-            verify_policy(self.build, self.release.replace("on:\\n", "on:\\n  push:\\n    tags: ['v*']\\n", 1))
+            verify_policy(self.build, self.release.replace("on:\n", "on:\n  push:\n    tags: ['v*']\n", 1))
 
     def test_no_clobber_or_asset_delete(self):
         for command in ("gh release upload --clobber", "gh release delete-asset"):
             with self.subTest(command=command):
                 with self.assertRaises(PolicyError):
-                    verify_policy(self.build, self.release + "\\n" + command)
+                    verify_policy(self.build, self.release + "\n" + command)
 
     def test_publish_is_explicit_not_implicit(self):
         with self.assertRaises(PolicyError):
