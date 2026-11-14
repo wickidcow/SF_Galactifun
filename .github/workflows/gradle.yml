@@ -80,6 +80,19 @@ jobs:
         run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.2.build.+ -PtargetJvm=25 -PprojectVersion=1.0.7
       - name: Verify Paper 26.3 stable compilation
         run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3.build.205-stable -PtargetJvm=25 -PprojectVersion=1.0.7
+      # Cross-check the production Slimefun Legacy version separately from the
+      # historical 4.1.45 release build. Neither source nor output JAR changes.
+      - name: Download released Slimefun Legacy 4.1.80 for runtime pairing check
+        shell: bash
+        run: |
+          set -euo pipefail
+          CORE=".ci/Slimefun-Legacy4.1.80.jar"
+          curl --fail --location --silent --show-error \
+            https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.80/Slimefun-Legacy4.1.80.jar \
+            --output "$CORE"
+          echo "7d93fa0ddfa7161a812ee4781b513703798f23ce77c5f45eb7a56b133af7ad5e  $CORE" | sha256sum --check --strict
+      - name: Verify Paper 26.3 and current Slimefun Legacy 4.1.80 compatibility
+        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar=.ci/Slimefun-Legacy4.1.80.jar -PpaperVersion=26.3.build.205-stable -PtargetJvm=25 -PprojectVersion=1.0.7
       - name: Upload canonical raw JAR artifact
         uses: actions/upload-artifact@v7
         with:
