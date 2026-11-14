@@ -61,6 +61,34 @@ def download_pinned_paper(destination: Path) -> None:
         raise RuntimeError(f"Downloaded Paper checksum mismatch: {digest}")
 
 
+def compile_native_probe(root: Path, plugins: Path) -> None:
+    """Build a CI-only JavaPlugin against the exact Paper 26.3 API."""
+    api_paths = list(Path.home().glob(
+        ".gradle/caches/modules-2/files-2.1/io.papermc.paper/paper-api/"
+        "26.3.build.205-stable/*/paper-api-26.3.build.205-stable.jar"
+    ))
+    if len(api_paths) != 1:
+        raise RuntimeError(f"Expected exactly one Paper 26.3 API JAR in Gradle cache: {api_paths}")
+    classes = root / "probe-classes"
+    classes.mkdir()
+    source = Path("scripts/native_probe/NativeAlienProbe.java").resolve()
+    subprocess.run(
+        ["javac", "--release", "21", "-encoding", "UTF-8",
+         "-cp", str(api_paths[0]), "-d", str(classes), str(source)],
+        check=True
+    )
+    (classes / "plugin.yml").write_text(
+        "name: NativeAlienProbe\\n"
+        "main: test.galactifun.NativeAlienProbe\\n"
+        "version: '1.0'\\n"
+        "api-version: '1.21.11'\\n"
+        "depend: [Galactifun]\\n",
+        encoding="utf-8"
+    )
+    subprocess.run(["jar", "cf", str((plugins / "NativeAlienProbe.jar").resolve()), "."],
+                   cwd=classes, check=True)
+
+
 def run_server(workdir: Path, paper_jar: Path, evidence: Path, cycle: int) -> None:
     command = ["java", "-Xms512M", "-Xmx2G", "-jar", str(paper_jar), "nogui"]
     process = subprocess.Popen(
@@ -107,6 +135,8 @@ def run_server(workdir: Path, paper_jar: Path, evidence: Path, cycle: int) -> No
         raise RuntimeError(f"Galactifun did not finish enabling on cycle {cycle}; tail:\n" + "".join(lines[-65:]))
     if "Error occurred while enabling Galactifun" in output:
         raise RuntimeError(f"Galactifun threw during enable on cycle {cycle}")
+    if "NATIVE_ALIEN_POLICY_FAIL" in output or "NATIVE_ALIEN_POLICY_PASS" not in output:
+        raise RuntimeError(f"Real native Martian/Titan King distance policy failed on cycle {cycle}; tail:\\n" + "".join(lines[-75:]))
     print(f"Native Paper 26.3 cycle {cycle}: Galactifun enabled and stopped cleanly")
 
 
@@ -130,6 +160,7 @@ def main() -> None:
         plugins.mkdir(parents=True)
         shutil.copyfile(plugin, plugins / "SF_Galactifun.jar")
         shutil.copyfile(core, plugins / "Slimefun-Legacy.jar")
+        compile_native_probe(root, plugins)
         (workdir / "eula.txt").write_text("eula=true\n", encoding="ascii")
         (workdir / "server.properties").write_text(
             "online-mode=false\nserver-ip=127.0.0.1\n"
@@ -146,7 +177,8 @@ def main() -> None:
             if data.read_bytes() != original:
                 raise AssertionError(f"Existing stargates.yml bytes changed on cycle {cycle}")
     print("PASS: native Paper 26.3 enabled Galactifun twice; original stargates.yml remains byte-exact")
-    print("LIMITATION: alien spawning, distance-despawn and saved-entity restart still need player/native acceptance")
+    print("PASS: real native Martian and Titan King spawn with expected distance-despawn flags on both boots")
+    print("LIMITATION: unloaded-chunk entity retention and long-range in-game player tests remain outstanding")
 
 
 if __name__ == "__main__":
