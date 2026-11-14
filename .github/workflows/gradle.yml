@@ -93,6 +93,20 @@ jobs:
           echo "7d93fa0ddfa7161a812ee4781b513703798f23ce77c5f45eb7a56b133af7ad5e  $CORE" | sha256sum --check --strict
       - name: Verify Paper 26.3 and current Slimefun Legacy 4.1.80 compatibility
         run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar=.ci/Slimefun-Legacy4.1.80.jar -PpaperVersion=26.3.build.205-stable -PtargetJvm=25 -PprojectVersion=1.0.7
+      - name: Native Paper 26.3 startup and restart with preserved Stargates data
+        timeout-minutes: 12
+        run: >-
+          python3 scripts/verify_native_paper_restart.py
+          --plugin "dist/${OUTPUT_NAME}"
+          --core .ci/Slimefun-Legacy4.1.80.jar
+      - name: Retain native startup and restart log evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: paper-26.3-native-startup-restart
+          path: build/native-evidence/*.log
+          if-no-files-found: warn
+
       - name: Upload canonical raw JAR artifact
         uses: actions/upload-artifact@v7
         with:
