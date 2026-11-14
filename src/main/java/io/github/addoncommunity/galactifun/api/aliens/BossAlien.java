@@ -48,7 +48,7 @@ public abstract class BossAlien<T extends Mob> extends Alien<T> {
         BossBar bossbar = this.style.create(Galactifun.alienManager().bossKey(), name());
         bossbar.setVisible(true);
         bossbar.setProgress(1.0);
-        spawned.setRemoveWhenFarAway(false);
+        setDistanceDespawn(spawned, false);
         this.bossBars.put(spawned, bossbar);
     }
 

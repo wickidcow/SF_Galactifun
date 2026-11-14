@@ -69,10 +69,23 @@ public class Alien<T extends Mob> {
         mob.setHealth(this.maxHealth);
         mob.customName(this.name);
         mob.setCustomNameVisible(true);
-        mob.setRemoveWhenFarAway(true);
+        setDistanceDespawn(mob, true);
 
         onSpawn(mob);
         return mob;
+    }
+
+    /**
+     * Preserve Bukkit's distance-despawn setting without compiling against its deprecated setter.
+     * Entity#setPersistent controls world persistence and is not equivalent.
+     */
+    protected static void setDistanceDespawn(Mob mob, boolean removeWhenFarAway) {
+        try {
+            Mob.class.getMethod("setRemoveWhenFarAway", boolean.class)
+                    .invoke(mob, removeWhenFarAway);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Unable to preserve alien distance-despawn policy", exception);
+        }
     }
 
     public final void register(@Nonnull AlienManager alienManager) {
