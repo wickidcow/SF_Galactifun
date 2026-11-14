@@ -72,9 +72,15 @@ def compile_native_probe(root: Path, plugins: Path) -> None:
     classes = root / "probe-classes"
     classes.mkdir()
     source = Path("scripts/native_probe/NativeAlienProbe.java").resolve()
+    # The Paper API exposes Kyori Adventure interfaces on JavaPlugin supertypes.
+    # Include the resolved, read-only compile API dependency jars for the probe.
+    adventure_jars = sorted(Path.home().glob(".gradle/caches/modules-2/files-2.1/net.kyori/*/*/*/*.jar"))
+    if not adventure_jars:
+        raise RuntimeError("Kyori Adventure Paper API compile dependencies were not resolved")
+    classpath = os.pathsep.join([str(api_paths[0])] + [str(jar) for jar in adventure_jars])
     subprocess.run(
         ["javac", "--release", "21", "-encoding", "UTF-8",
-         "-cp", str(api_paths[0]), "-d", str(classes), str(source)],
+         "-cp", classpath, "-d", str(classes), str(source)],
         check=True
     )
     (classes / "plugin.yml").write_text(
