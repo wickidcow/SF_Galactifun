@@ -79,9 +79,13 @@ def run_server(workdir: Path, paper_jar: Path, evidence: Path, cycle: int) -> No
     log_reader.start()
     deadline = time.monotonic() + 180
     stop_sent = False
+    ready_at = None
     try:
         while process.poll() is None and time.monotonic() < deadline:
-            if ready.is_set() and not stop_sent:
+            if ready.is_set() and ready_at is None:
+                ready_at = time.monotonic()
+            # Permit next-tick startup verification and async post-startup hooks.
+            if ready_at is not None and time.monotonic() - ready_at >= 5 and not stop_sent:
                 assert process.stdin is not None
                 process.stdin.write("stop\n")
                 process.stdin.flush()
