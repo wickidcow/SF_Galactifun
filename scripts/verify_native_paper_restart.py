@@ -78,11 +78,11 @@ def compile_native_probe(root: Path, plugins: Path) -> None:
         check=True
     )
     (classes / "plugin.yml").write_text(
-        "name: NativeAlienProbe\\n"
-        "main: test.galactifun.NativeAlienProbe\\n"
-        "version: '1.0'\\n"
-        "api-version: '1.21.11'\\n"
-        "depend: [Galactifun]\\n",
+        "name: NativeAlienProbe\n"
+        "main: test.galactifun.NativeAlienProbe\n"
+        "version: '1.0'\n"
+        "api-version: '1.21.11'\n"
+        "depend: [Galactifun]\n",
         encoding="utf-8"
     )
     subprocess.run(["jar", "cf", str((plugins / "NativeAlienProbe.jar").resolve()), "."],
@@ -136,7 +136,7 @@ def run_server(workdir: Path, paper_jar: Path, evidence: Path, cycle: int) -> No
     if "Error occurred while enabling Galactifun" in output:
         raise RuntimeError(f"Galactifun threw during enable on cycle {cycle}")
     if "NATIVE_ALIEN_POLICY_FAIL" in output or "NATIVE_ALIEN_POLICY_PASS" not in output:
-        raise RuntimeError(f"Real native Martian/Titan King distance policy failed on cycle {cycle}; tail:\\n" + "".join(lines[-75:]))
+        raise RuntimeError(f"Real native Martian/Titan King distance policy failed on cycle {cycle}; tail:\n" + "".join(lines[-75:]))
     print(f"Native Paper 26.3 cycle {cycle}: Galactifun enabled and stopped cleanly")
 
 
