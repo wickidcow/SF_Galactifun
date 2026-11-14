@@ -78,8 +78,8 @@ jobs:
           sha256sum "dist/${OUTPUT_NAME}"
       - name: Verify Paper 26.2 compilation
         run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.2.build.+ -PtargetJvm=25 -PprojectVersion=1.0.7
-      - name: Verify Paper 26.3 alpha compilation
-        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3-rc-3.build.1-alpha -PtargetJvm=25 -PprojectVersion=1.0.7
+      - name: Verify Paper 26.3 stable compilation
+        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3.build.205-stable -PtargetJvm=25 -PprojectVersion=1.0.7
       - name: Upload canonical raw JAR artifact
         uses: actions/upload-artifact@v7
         with:
