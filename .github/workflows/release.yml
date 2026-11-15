@@ -74,6 +74,7 @@ jobs:
           unzip -p "$JAR" plugin.yml | grep -F "api-version: '1.21.11'"
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
             | grep -F "major version: 65"
+          sha256sum "$JAR" > .ci/release-jar.sha256
 
       - name: Verify Paper 26.3 alpha compilation
         run: ./gradlew compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3-rc-3.build.1-alpha -PprojectVersion="$VERSION"
@@ -84,7 +85,7 @@ jobs:
           test -s "build/libs/${OUTPUT_NAME}"
           unzip -t "build/libs/${OUTPUT_NAME}"
           unzip -p "build/libs/${OUTPUT_NAME}" plugin.yml | grep -F "version: '1.0.7'"
-          sha256sum "build/libs/${OUTPUT_NAME}"
+          sha256sum --check --strict .ci/release-jar.sha256
 
       - name: Publish a new release only; refuse existing tags and assets
         env:
