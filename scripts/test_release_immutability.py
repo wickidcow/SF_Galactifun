@@ -59,12 +59,19 @@ def verify_policy(build: str, release: str) -> None:
         raise PolicyError("Preserved release JAR must remain a readable archive")
     if release.count('grep -F "version: \'$VERSION\'"') != 2:
         raise PolicyError("Both release artifact checks must use current version, not a stale tag")
-    release_compat = release.split("      - name: Verify Paper 26.3 alpha compilation", 1)[-1].split(
+    release_compat = release.split("      - name: Verify Paper 26.3 stable compilation against current Slimefun", 1)[-1].split(
         "      - name: Recheck preserved release artifact", 1
     )[0]
     if 'run: ./gradlew compileJava test --no-daemon' not in release_compat or \
             'run: ./gradlew clean compileJava test --no-daemon' in release_compat:
         raise PolicyError("Paper compatibility pass must never delete the release JAR")
+    if "-PpaperVersion=26.3.build.205-stable -PtargetJvm=25" not in release_compat:
+        raise PolicyError("Current Paper 26.3 stable compiler matrix must be tested")
+    if "python3 scripts/verify_native_paper_restart.py" not in release or \
+            '--plugin "build/libs/${OUTPUT_NAME}"' not in release:
+        raise PolicyError("Release must test the exact saved JAR through native restart")
+    if release.count("sha256sum --check --strict .ci/release-jar.sha256") != 2:
+        raise PolicyError("Release JAR must remain byte-identical after restart")
 
 
 class ReleaseImmutabilityTest(unittest.TestCase):
@@ -142,6 +149,16 @@ class ReleaseImmutabilityTest(unittest.TestCase):
             verify_policy(self.build, self.release.replace(
                 'grep -F "version: \'$VERSION\'"', 'grep -F "version: \'1.0.7\'"'))
 
+    def test_cannot_skip_native_paper_restart(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                "python3 scripts/verify_native_paper_restart.py", "true"))
+
+    def test_cannot_build_against_old_26_3_alpha(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                "-PpaperVersion=26.3.build.205-stable -PtargetJvm=25",
+                "-PpaperVersion=26.3-rc-3.build.1-alpha"))
     def test_cannot_replace_raw_jar_with_unverified_sources(self):
         with self.assertRaises(PolicyError):
             verify_policy(self.build.replace("actions/upload-artifact@v7", "actions/download-artifact@v7"), self.release)
