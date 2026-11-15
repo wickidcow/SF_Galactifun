@@ -13,7 +13,7 @@ repositories {
 }
 
 group = "io.github.addoncommunity.galactifun"
-version = providers.gradleProperty("projectVersion").orElse("1.0.7").get()
+version = providers.gradleProperty("projectVersion").orElse("1.0.8").get()
 description = "Galactifun Legacy - space exploration and planetary gameplay for Slimefun Legacy"
 
 val slimefunCoreJar = providers.gradleProperty("slimefunCoreJar").orNull
