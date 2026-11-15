@@ -70,7 +70,7 @@ jobs:
         run: |
           JAR="build/libs/${OUTPUT_NAME}"
           test -s "$JAR"
-          unzip -p "$JAR" plugin.yml | grep -F "version: '1.0.7'"
+          unzip -p "$JAR" plugin.yml | grep -F "version: '$VERSION'"
           unzip -p "$JAR" plugin.yml | grep -F "api-version: '1.21.11'"
           javap -verbose -classpath "$JAR" io.github.addoncommunity.galactifun.Galactifun \
             | grep -F "major version: 65"
@@ -84,7 +84,7 @@ jobs:
         run: |
           test -s "build/libs/${OUTPUT_NAME}"
           unzip -t "build/libs/${OUTPUT_NAME}"
-          unzip -p "build/libs/${OUTPUT_NAME}" plugin.yml | grep -F "version: '1.0.7'"
+          unzip -p "build/libs/${OUTPUT_NAME}" plugin.yml | grep -F "version: '$VERSION'"
           sha256sum --check --strict .ci/release-jar.sha256
 
       - name: Publish a new release only; refuse existing tags and assets

@@ -50,6 +50,22 @@ def verify_policy(build: str, release: str) -> None:
     if 'Refusing to reuse existing immutable tag' not in release:
         raise PolicyError("Existing tag must cause an explicit refusal")
 
+    # The two-pass verification must never erase a successfully built JAR.
+    if 'sha256sum "$JAR" > .ci/release-jar.sha256' not in release:
+        raise PolicyError("Preserve the exact release candidate digest before compatibility build")
+    if 'sha256sum --check --strict .ci/release-jar.sha256' not in release:
+        raise PolicyError("Recheck exact release JAR bytes before publishing")
+    if 'unzip -t "build/libs/${OUTPUT_NAME}"' not in release:
+        raise PolicyError("Preserved release JAR must remain a readable archive")
+    if release.count('grep -F "version: \'$VERSION\'"') != 2:
+        raise PolicyError("Both release artifact checks must use current version, not a stale tag")
+    release_compat = release.split("      - name: Verify Paper 26.3 alpha compilation", 1)[-1].split(
+        "      - name: Recheck preserved release artifact", 1
+    )[0]
+    if 'run: ./gradlew compileJava test --no-daemon' not in release_compat or \
+            'run: ./gradlew clean compileJava test --no-daemon' in release_compat:
+        raise PolicyError("Paper compatibility pass must never delete the release JAR")
+
 
 class ReleaseImmutabilityTest(unittest.TestCase):
     @classmethod
@@ -109,6 +125,22 @@ class ReleaseImmutabilityTest(unittest.TestCase):
     def test_tag_lookup_errors_must_fail_closed(self):
         with self.assertRaises(PolicyError):
             verify_policy(self.build, self.release.replace('if [[ "$tag_status" -ne 2 ]]', 'if false'))
+
+    def test_cannot_reintroduce_destructive_second_clean(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                "run: ./gradlew compileJava test --no-daemon",
+                "run: ./gradlew clean compileJava test --no-daemon"))
+
+    def test_digest_guard_cannot_be_removed(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                "sha256sum --check --strict .ci/release-jar.sha256", "true"))
+
+    def test_reject_pinned_old_version_checks(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                'grep -F "version: \'$VERSION\'"', 'grep -F "version: \'1.0.7\'"'))
 
     def test_cannot_replace_raw_jar_with_unverified_sources(self):
         with self.assertRaises(PolicyError):
