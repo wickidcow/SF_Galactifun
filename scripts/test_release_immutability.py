@@ -50,6 +50,29 @@ def verify_policy(build: str, release: str) -> None:
     if 'Refusing to reuse existing immutable tag' not in release:
         raise PolicyError("Existing tag must cause an explicit refusal")
 
+    # The two-pass verification must never erase a successfully built JAR.
+    if 'sha256sum "$JAR" > .ci/release-jar.sha256' not in release:
+        raise PolicyError("Preserve the exact release candidate digest before compatibility build")
+    if 'sha256sum --check --strict .ci/release-jar.sha256' not in release:
+        raise PolicyError("Recheck exact release JAR bytes before publishing")
+    if 'unzip -t "build/libs/${OUTPUT_NAME}"' not in release:
+        raise PolicyError("Preserved release JAR must remain a readable archive")
+    if release.count('grep -F "version: \'$VERSION\'"') != 2:
+        raise PolicyError("Both release artifact checks must use current version, not a stale tag")
+    release_compat = release.split("      - name: Verify Paper 26.3 stable compilation against current Slimefun", 1)[-1].split(
+        "      - name: Recheck preserved release artifact", 1
+    )[0]
+    if 'run: ./gradlew compileJava test --no-daemon' not in release_compat or \
+            'run: ./gradlew clean compileJava test --no-daemon' in release_compat:
+        raise PolicyError("Paper compatibility pass must never delete the release JAR")
+    if "-PpaperVersion=26.3.build.205-stable -PtargetJvm=25" not in release_compat:
+        raise PolicyError("Current Paper 26.3 stable compiler matrix must be tested")
+    if "python3 scripts/verify_native_paper_restart.py" not in release or \
+            '--plugin "build/libs/${OUTPUT_NAME}"' not in release:
+        raise PolicyError("Release must test the exact saved JAR through native restart")
+    if release.count("sha256sum --check --strict .ci/release-jar.sha256") != 2:
+        raise PolicyError("Release JAR must remain byte-identical after restart")
+
 
 class ReleaseImmutabilityTest(unittest.TestCase):
     @classmethod
@@ -110,6 +133,32 @@ class ReleaseImmutabilityTest(unittest.TestCase):
         with self.assertRaises(PolicyError):
             verify_policy(self.build, self.release.replace('if [[ "$tag_status" -ne 2 ]]', 'if false'))
 
+    def test_cannot_reintroduce_destructive_second_clean(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                "run: ./gradlew compileJava test --no-daemon",
+                "run: ./gradlew clean compileJava test --no-daemon"))
+
+    def test_digest_guard_cannot_be_removed(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                "sha256sum --check --strict .ci/release-jar.sha256", "true"))
+
+    def test_reject_pinned_old_version_checks(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                'grep -F "version: \'$VERSION\'"', 'grep -F "version: \'1.0.7\'"'))
+
+    def test_cannot_skip_native_paper_restart(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                "python3 scripts/verify_native_paper_restart.py", "true"))
+
+    def test_cannot_build_against_old_26_3_alpha(self):
+        with self.assertRaises(PolicyError):
+            verify_policy(self.build, self.release.replace(
+                "-PpaperVersion=26.3.build.205-stable -PtargetJvm=25",
+                "-PpaperVersion=26.3-rc-3.build.1-alpha"))
     def test_cannot_replace_raw_jar_with_unverified_sources(self):
         with self.assertRaises(PolicyError):
             verify_policy(self.build.replace("actions/upload-artifact@v7", "actions/download-artifact@v7"), self.release)
