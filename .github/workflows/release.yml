@@ -76,7 +76,15 @@ jobs:
             | grep -F "major version: 65"
 
       - name: Verify Paper 26.3 alpha compilation
-        run: ./gradlew clean compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3-rc-3.build.1-alpha -PprojectVersion="$VERSION"
+        run: ./gradlew compileJava test --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PpaperVersion=26.3-rc-3.build.1-alpha -PprojectVersion="$VERSION"
+
+      - name: Recheck preserved release artifact after compatibility validation
+        shell: bash
+        run: |
+          test -s "build/libs/${OUTPUT_NAME}"
+          unzip -t "build/libs/${OUTPUT_NAME}"
+          unzip -p "build/libs/${OUTPUT_NAME}" plugin.yml | grep -F "version: '1.0.7'"
+          sha256sum "build/libs/${OUTPUT_NAME}"
 
       - name: Publish a new release only; refuse existing tags and assets
         env:
