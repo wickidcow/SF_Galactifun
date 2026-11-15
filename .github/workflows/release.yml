@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (for example v1.0.7)'
+        description: 'Release tag (for example v1.0.8)'
         required: true
-        default: 'v1.0.7'
+        default: 'v1.0.8'
       publish:
         description: 'Explicitly publish a distinct, never-before-published version'
         type: boolean
@@ -17,8 +17,8 @@ permissions:
   contents: write
 
 env:
-  VERSION: "1.0.7"
-  OUTPUT_NAME: "SF_Galactifun1.0.7.jar"
+  VERSION: "1.0.8"
+  OUTPUT_NAME: "SF_Galactifun1.0.8.jar"
 
 jobs:
   release:
